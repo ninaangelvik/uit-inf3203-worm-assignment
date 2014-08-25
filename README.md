@@ -1,4 +1,21 @@
-Wormgate
-========
+# Wormgate
+An example wormgate and segment code for the first assignment of the INF-3200
+Distributed Systems Fundamentals course fall 2014. The Wormgate (wormgate.go) is
+a simple program that starts a HTTP server and waits for a POST request to
+/segment. It stores what ever binary received and executes it. 
 
-Example Wormgate 
+# How To
+
+Start the wormgate
+
+``` 
+go run wormgate.go
+``` 
+
+Send the segment code
+
+```
+go run ctrlman.go
+```
+
+The source code for the segment code can be found in hello-world-graphic.go
