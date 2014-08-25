@@ -42,7 +42,7 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 	// Write segment to file
 	file.Write(body)
 
-	// Start command
+	// Start command, do not wait for it to complete
 	cmd := exec.Command("go", "run", filename)
 	err = cmd.Start()
 	if err != nil {
