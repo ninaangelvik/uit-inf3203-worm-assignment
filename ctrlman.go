@@ -12,7 +12,7 @@ func main() {
 	port := ":8181"
 	url := address + port + "/segment"
 
-	filename := "hello-world.go"
+	filename := "hello-world-graphic.go"
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Panic("Could not read input file", err)
