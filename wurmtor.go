@@ -27,7 +27,7 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Received segment from ", r.RemoteAddr)
 
 	// Create file to store segment
-	filename := "segment.go"
+	filename := "segment"
 	file, err := os.Create(filename)
 	if err != nil {
 		log.Panic("Could not create file to store segment", err)
@@ -42,8 +42,15 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 	// Write segment to file
 	file.Write(body)
 
+	// Make segment code executable
+	cmd := exec.Command("chmod", "u+x", filename)
+	err = cmd.Run()
+	if err != nil {
+		log.Panic("Error making segment code executable", err)
+	}
+
 	// Start command, do not wait for it to complete
-	cmd := exec.Command("go", "run", filename)
+	cmd = exec.Command("./" + filename)
 	err = cmd.Start()
 	if err != nil {
 		log.Panic("Error starting segment", err)
