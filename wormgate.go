@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -9,7 +10,15 @@ import (
 	"os/exec"
 )
 
+var path string
+
 func main() {
+
+	path = *flag.String("path", "/tmp/wormgate",
+		"where to store incoming segments")
+
+	flag.Parse()
+
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/segment", SegmentHandler)
 
@@ -26,9 +35,17 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("Received segment from ", r.RemoteAddr)
 
-	// Create file to store segment
 	filename := "segment"
-	file, err := os.Create(filename)
+	fn := path + "/" + filename
+
+	// Create directory to store segment code.
+	err := os.MkdirAll(path, 0755)
+	if err != nil {
+		log.Panic("Could not create directory to store segment ", err)
+	}
+
+	// Create file and store incoming segment
+	file, err := os.Create(fn)
 	if err != nil {
 		log.Panic("Could not create file to store segment", err)
 	}
@@ -42,18 +59,24 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 	// Write segment to file
 	file.Write(body)
 
+	err = file.Close()
+	if err != nil {
+		log.Panic("Error closing segment executable", err)
+	}
+
 	// Make segment code executable
-	cmd := exec.Command("chmod", "u+x", filename)
+	cmd := exec.Command("chmod", "+x", fn)
 	err = cmd.Run()
 	if err != nil {
-		log.Panic("Error making segment code executable", err)
+		log.Panic("Error making segment code executable ", err)
 	}
 
 	// Start command, do not wait for it to complete
-	cmd = exec.Command("./" + filename)
+	cmd = exec.Command(fn)
+	//cmd.Dir = path
 	err = cmd.Start()
 	if err != nil {
-		log.Panic("Error starting segment", err)
+		log.Panic("Error starting segment ", err)
 	}
 
 }
