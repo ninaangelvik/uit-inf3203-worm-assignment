@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"math/rand"
+        "os"
 	"time"
 
 	"gopkg.in/qml.v1"
@@ -24,7 +25,8 @@ func run() error {
 		return err
 	}
 
-	ctrl := Control{Message: "Hello world!"}
+        dir, _ := os.Getwd()
+	ctrl := Control{Message: dir}
 
 	context := engine.Context()
 	context.SetVar("ctrl", &ctrl)
