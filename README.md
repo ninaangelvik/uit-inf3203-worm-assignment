@@ -20,3 +20,9 @@ go run ctrlman.go
 ```
 
 The source code for the segment code can be found in hello-world-graphic.go
+
+NB that you might have to rebuild the segment binary (do this if you get a weird exec error from the wormgate):
+
+```
+go build hello-world-graphic.go
+```
