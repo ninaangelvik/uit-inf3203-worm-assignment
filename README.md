@@ -6,7 +6,7 @@ a simple program that starts a HTTP server and waits for a POST request to
 attempts to extract this and runs ```hello-world-graphic```. 
 
 # Feedback
-Please don't hesitate with asking questions or give feedback in the [Issues section](https://github.com/uit-inf-3200/Wormgate/issues)! If you feel that the code could be better, please submit a [pull request](https://help.github.com/articles/using-pull-requests)! 
+Please don't hesitate with asking questions or giving feedback in the [Issues section](https://github.com/uit-inf-3200/Wormgate/issues)! If you feel that the code could be better, please submit a [pull request](https://help.github.com/articles/using-pull-requests)! 
 
 # How To
 
