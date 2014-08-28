@@ -5,6 +5,9 @@ a simple program that starts a HTTP server and waits for a POST request to
 ```/segment```. It stores whatever it receives to ```/tmp/wormgate/[random hex string]/tmp.tar.gz```,
 attempts to extract this and runs ```hello-world-graphic```. 
 
+# Feedback
+Please don't hesitate with asking questions or give feedback in the [Issues section](https://github.com/uit-inf-3200/Wormgate/issues)! If you feel that the code could be better, please submit a [pull request](https://help.github.com/articles/using-pull-requests)! 
+
 # How To
 
 - Start the wormgate
