@@ -31,7 +31,7 @@ func main() {
 	http.HandleFunc("/segment", SegmentHandler)
 
 	port := ":8181"
-	log.Printf("Started wurmtor on localhost%s\n", port)
+	log.Printf("Started wormgate on localhost%s\n", port)
 	err := http.ListenAndServe(port, nil)
 
 	if err != nil {
@@ -97,6 +97,6 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	hostname, _ := os.Hostname()
-	body := "Wurmtor running on " + hostname
+	body := "Wormgate running on " + hostname
 	fmt.Fprintf(w, "<h1>%s</h1></br><p>Post segments to to /segment</p>", body)
 }
