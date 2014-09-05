@@ -3,7 +3,7 @@ An example wormgate and segment code for the [first assignment](https://github.c
 Distributed Systems Fundamentals course fall 2014. The Wormgate ([wormgate.go](https://github.com/uit-inf-3200/Wormgate/blob/master/wormgate.go)) is
 a simple program that starts a HTTP server and waits for a POST request to
 ```/segment```. It stores whatever it receives to ```/tmp/wormgate/[random hex string]/tmp.tar.gz```,
-attempts to extract this and runs ```hello-world-graphic```. Please note that the wormgate starts up on port *8181*. If your team wants to use this wormgate, change the port to something different!  
+attempts to extract this and runs ```hello-world-graphic```. Please note that the wormgate starts up on port *8181*, your wormgate should choose a different one! 
 
 # Feedback
 Please don't hesitate with asking questions or giving feedback in the [Issues section](https://github.com/uit-inf-3200/Wormgate/issues)! If you feel that the code could be better, submit a [pull request](https://help.github.com/articles/using-pull-requests)! 
