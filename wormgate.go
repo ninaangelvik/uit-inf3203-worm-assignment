@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-        "math/rand"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
-        "time"
+	"time"
 )
 
 var path string
@@ -19,11 +19,11 @@ func main() {
 	path = *flag.String("path", "/tmp/wormgate",
 		"where to store incoming segments")
 
-        log.Printf("Changing working directory to " + path)
-        os.Chdir(path)
+	log.Printf("Changing working directory to " + path)
+	os.Chdir(path)
 
-        rand.Seed(time.Now().Unix())
-        //log.Printf(hex.EncodeToString(rand.Int63()))
+	rand.Seed(time.Now().Unix())
+	//log.Printf(hex.EncodeToString(rand.Int63()))
 
 	flag.Parse()
 
@@ -43,9 +43,9 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("Received segment from ", r.RemoteAddr)
 
-        // we'll extrackt and execute our segment in a new folder
-        randomstring := fmt.Sprintf("%x", rand.Int63())
-        extractionpath := path + "/" + randomstring
+	// we'll extrackt and execute our segment in a new folder
+	randomstring := fmt.Sprintf("%x", rand.Int63())
+	extractionpath := path + "/" + randomstring
 	filename := "tmp.tar.gz"
 	fn := extractionpath + "/" + filename
 
@@ -54,15 +54,15 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Panic("Could not create directory to store segment ", err)
 	}
-        os.Chdir(extractionpath)
-        defer os.Chdir(path)  // change back to base directory later
+	os.Chdir(extractionpath)
+	defer os.Chdir(path) // change back to base directory later
 
 	// Create file and store incoming segment
 	file, err := os.Create(fn)
 	if err != nil {
 		log.Panic("Could not create file to store segment", err)
 	}
-        defer os.Remove(fn)  // let's remove the tarball later
+	defer os.Remove(fn) // let's remove the tarball later
 
 	// Read from http POST
 	body, err := ioutil.ReadAll(r.Body)
@@ -77,15 +77,15 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 		log.Panic("Error closing segment executable", err)
 	}
 
-        // extract segment
-        tarCmd := exec.Command("tar", "-x", "-f" + fn)
-        err = tarCmd.Run()
+	// extract segment
+	tarCmd := exec.Command("tar", "-x", "-f"+fn)
+	err = tarCmd.Run()
 	if err != nil {
 		log.Panic("Error extracting segment ", err)
 	}
 
 	// Start command, do not wait for it to complete
-        binary := extractionpath + "/" + "hello-world-graphic"
+	binary := extractionpath + "/" + "hello-world-graphic"
 	cmd := exec.Command(binary)
 	//cmd.Dir = path
 	err = cmd.Start()
