@@ -4,21 +4,27 @@ import (
 	"log"
 	"net/http"
 	"os"
-        "os/exec"
+	"os/exec"
 )
 
 func main() {
+
+	sendSegment()
+
+}
+
+func sendSegment() {
 
 	address := "http://localhost"
 	port := ":8181"
 	url := address + port + "/segment"
 	filename := "tmp.tar.gz"
 
-        // ship the binary and the qml file that describes our screen output
-        tarCmd := exec.Command("tar", "-zc", "-f" + filename,
-            "hello-world-graphic", "hello-world.qml")
-        tarCmd.Run()
-        defer os.Remove(filename)
+	// ship the binary and the qml file that describes our screen output
+	tarCmd := exec.Command("tar", "-zc", "-f"+filename,
+		"hello-world-graphic", "hello-world.qml")
+	tarCmd.Run()
+	defer os.Remove(filename)
 
 	file, err := os.Open(filename)
 	if err != nil {
@@ -31,4 +37,5 @@ func main() {
 	}
 
 	log.Println("repsonse:", resp)
+
 }
