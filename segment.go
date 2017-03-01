@@ -57,7 +57,11 @@ func sendSegment(address string) {
 		log.Panic("POST error ", err)
 	}
 
-	log.Println("repsonse:", resp)
+	if resp.StatusCode == 200 {
+		log.Println("Received OK from server")
+	} else {
+		log.Println("Response: ", resp)
+	}
 }
 
 func startPayload() {
@@ -69,7 +73,7 @@ func startPayload() {
 
 	binary := dir + "/" + "payload"
 	cmdline := []string{"stdbuf", "-oL", "-eL", binary}
-	log.Printf("Running %q", cmdline)
+	log.Printf("Running payload: %q", cmdline)
 	cmd := exec.Command(cmdline[0], cmdline[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

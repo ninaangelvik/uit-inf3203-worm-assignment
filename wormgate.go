@@ -88,10 +88,9 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// extract segment
-	tarCmd := exec.Command("tar", "-xzf", fn)
-
-	log.Println(tarCmd)
-
+	cmdline := []string{"tar", "-xzf", fn}
+	log.Printf("Extracting segment: %q", cmdline)
+	tarCmd := exec.Command(cmdline[0], cmdline[1:]...)
 	err = tarCmd.Run()
 	if err != nil {
 		log.Panic("Error extracting segment ", err)
@@ -99,8 +98,8 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Start command, do not wait for it to complete
 	binary := extractionpath + "/" + "segment"
-	cmdline := []string{"stdbuf", "-oL", "-eL", binary, "run"}
-	log.Printf("Running %q", cmdline)
+	cmdline = []string{"stdbuf", "-oL", "-eL", binary, "run"}
+	log.Printf("Running segment: %q", cmdline)
 	cmd := exec.Command(cmdline[0], cmdline[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
