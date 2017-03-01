@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/user"
 	"time"
 )
 
@@ -22,7 +23,13 @@ var path string
 
 func main() {
 
-	path = *flag.String("path", "/tmp/wormgate",
+	curuser, err := user.Current()
+	if err!=nil {
+		log.Panic(err)
+	}
+	log.Printf("Current user: %s\n", curuser.Username)
+
+	path = *flag.String("path", "/tmp/wormgate-" + curuser.Username,
 		"where to store segment code")
 
 	log.Printf("Changing working directory to " + path)
@@ -40,7 +47,7 @@ func main() {
 	port := ":8181"
 	log.Printf("Started wormgate on localhost%s\n", port)
 
-	err := http.ListenAndServe(port, nil)
+	err = http.ListenAndServe(port, nil)
 
 	if err != nil {
 		log.Panic(err)
