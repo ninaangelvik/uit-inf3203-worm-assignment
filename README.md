@@ -13,7 +13,7 @@ to all the tiles on the display wall.
 
 The wormgate stores whatever it receives at `/wormgate` to
 ```/tmp/wormgate/[random hex string]/tmp.tar.gz```, attempts to extract this and
-runs ```hello-world-graphic```. 
+runs ```payload```.
 
 Please note that the wormgate starts up on port *8181*, your wormgate should
 choose a different one! 
@@ -42,13 +42,13 @@ go run segment.go
 The source code for the segment code can be found in
 [segment.go](https://github.com/uit-inf-3200/Wormgate/blob/master/segment.go),
 and the code that is shipped to the tiles is found in 
-[hello-world-graphic.go](https://github.com/uit-inf-3200/Wormgate/blob/master/hello-world-graphic.go),
+[payload.go](https://github.com/uit-inf-3200/Wormgate/blob/master/payload.go),
 
-NB that you might have to rebuild the `hello-world-graphic` binary (do this if
+NB that you might have to rebuild the `payload` binary (do this if
 you get a weird exec error from the wormgate):
 
 ```
-go build hello-world-graphic.go
+go build payload.go
 ```
 
 # Prerequisites

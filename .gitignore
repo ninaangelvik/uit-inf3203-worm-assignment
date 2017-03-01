@@ -2,6 +2,6 @@
 .*.sw?
 
 # Generated executables
-hello-world-graphic
+payload
 segment
 wormgate

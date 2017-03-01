@@ -136,7 +136,7 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start command, do not wait for it to complete
-	binary := extractionpath + "/" + "hello-world-graphic"
+	binary := extractionpath + "/" + "payload"
 	cmd := exec.Command(binary)
 	//cmd.Dir = path
 	err = cmd.Start()

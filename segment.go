@@ -38,7 +38,7 @@ func sendSegment(address string) {
 
 	// ship the binary and the qml file that describes our screen output
 	tarCmd := exec.Command("tar", "-zc", "-f"+filename,
-		"hello-world-graphic", "segment")
+		"segment", "payload")
 	tarCmd.Run()
 	defer os.Remove(filename)
 
