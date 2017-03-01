@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -13,11 +12,6 @@ import (
 	"os/user"
 	"time"
 )
-
-// mapping tile-x-y to ip.
-var tile = map[string]string{
-	"compute-1-1": "compute-1-1",
-}
 
 var path string
 
@@ -44,50 +38,15 @@ func main() {
 
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/wormgate", WormGateHandler)
-	http.HandleFunc("/segment", SegmentHandler)
 
-	log.Println(tile)
 	port := ":8181"
-	log.Printf("Started wormgate on localhost%s\n", port)
+	log.Printf("Started wormgate on %s%s\n", hostname, port)
 
 	err = http.ListenAndServe(port, nil)
 
 	if err != nil {
 		log.Panic(err)
 	}
-}
-
-func SegmentHandler(w http.ResponseWriter, r *http.Request) {
-
-	// Read file received from segment
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	// Send the segment to every
-	for _, v := range tile {
-
-		load := make([]byte, len(body))
-		n := copy(load, body)
-		log.Println("Copied", n)
-
-		reader := bytes.NewReader(load)
-
-		url := "http://" + v + ":8181" + "/wormgate"
-
-		log.Println("Sending segment to wormgate at", v)
-
-		resp, err := http.Post(url, "string", reader)
-		if err != nil {
-			log.Println("POST error ", url, err)
-		}
-
-		log.Println(resp)
-	}
-
-	w.WriteHeader(http.StatusOK)
-
 }
 
 func WormGateHandler(w http.ResponseWriter, r *http.Request) {

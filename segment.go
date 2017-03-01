@@ -36,7 +36,7 @@ func main() {
 func sendSegment(address string) {
 
 	port := ":8181"
-	url := "http://" + address + port + "/segment"
+	url := "http://" + address + port + "/wormgate"
 	filename := "tmp.tar.gz"
 
 	log.Printf("Spreading to %s", url)
