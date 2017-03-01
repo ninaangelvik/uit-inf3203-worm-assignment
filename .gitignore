@@ -1,3 +1,7 @@
+# Vim Swap files
+.*.sw?
+
+# Generated executables
 hello-world-graphic
 segment
 wormgate
