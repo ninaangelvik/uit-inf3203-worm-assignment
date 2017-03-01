@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 func main() {
@@ -25,7 +26,8 @@ func main() {
 		spreadMode.Parse(os.Args[2:])
 		sendSegment(*spreadHost)
 	case "run":
-		// TODO
+		startPayload()
+
 	default:
 		log.Fatalf("Unknown mode %q\n", os.Args[1])
 	}
@@ -56,4 +58,24 @@ func sendSegment(address string) {
 	}
 
 	log.Println("repsonse:", resp)
+}
+
+func startPayload() {
+	// Start payload, do not wait for it to complete
+	var dir, err = filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		log.Panic("Error starting payload: ", err)
+	}
+
+	binary := dir + "/" + "payload"
+	cmdline := []string{"stdbuf", "-oL", "-eL", binary}
+	log.Printf("Running %q", cmdline)
+	cmd := exec.Command(cmdline[0], cmdline[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Start()
+
+	if err != nil {
+		log.Panic("Error starting payload: ", err)
+	}
 }

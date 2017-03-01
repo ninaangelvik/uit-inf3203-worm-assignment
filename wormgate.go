@@ -139,8 +139,10 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start command, do not wait for it to complete
-	binary := extractionpath + "/" + "payload"
-	cmd := exec.Command("stdbuf", "-oL", "-eL", binary)
+	binary := extractionpath + "/" + "segment"
+	cmdline := []string{"stdbuf", "-oL", "-eL", binary, "run"}
+	log.Printf("Running %q", cmdline)
+	cmd := exec.Command(cmdline[0], cmdline[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	//cmd.Dir = path
@@ -148,7 +150,6 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Panic("Error starting segment ", err)
 	}
-
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
