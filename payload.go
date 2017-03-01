@@ -11,7 +11,7 @@ func main() {
 
 	err := run()
 	if err != nil {
-		log.Panic("Could not run QML man", err)
+		log.Panicf("Run error: %q", err)
 	}
 }
 
@@ -19,7 +19,7 @@ func run() error {
 
         dir, _ := os.Getwd()
 
-	print (dir)
+	log.Printf("Payload app here! Running in %q", dir)
 
 	rand.Seed(time.Now().Unix())
 

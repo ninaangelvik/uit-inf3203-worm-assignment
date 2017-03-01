@@ -137,7 +137,9 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Start command, do not wait for it to complete
 	binary := extractionpath + "/" + "payload"
-	cmd := exec.Command(binary)
+	cmd := exec.Command("stdbuf", "-oL", "-eL", binary)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	//cmd.Dir = path
 	err = cmd.Start()
 	if err != nil {
