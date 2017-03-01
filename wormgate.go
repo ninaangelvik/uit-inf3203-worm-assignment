@@ -15,34 +15,8 @@ import (
 
 // mapping tile-x-y to ip.
 var tile = map[string]string{
-	"tile-0-0": "10.1.1.14",
-	"tile-0-1": "10.1.1.15",
-	"tile-0-2": "10.1.1.16",
-	"tile-0-3": "10.1.1.20",
-	"tile-1-0": "10.1.1.21",
-	"tile-1-1": "10.1.1.22",
-	"tile-1-2": "10.1.1.23",
-	"tile-1-3": "10.1.1.24",
-	"tile-2-0": "10.1.1.25",
-	"tile-2-1": "10.1.1.26",
-	"tile-2-2": "10.1.1.27",
-	"tile-2-3": "10.1.1.28",
-	"tile-3-0": "10.1.1.29",
-	"tile-3-1": "10.1.1.30",
-	"tile-3-2": "10.1.1.31",
-	"tile-3-3": "10.1.1.32",
-	"tile-4-0": "10.1.1.33",
-	"tile-4-1": "10.1.1.34",
-	"tile-4-2": "10.1.1.35",
-	"tile-4-3": "10.1.1.36",
-	"tile-5-0": "10.1.1.37",
-	"tile-5-1": "10.1.1.38",
-	"tile-5-2": "10.1.1.39",
-	"tile-5-3": "10.1.1.40",
-	"tile-6-0": "10.1.1.41",
-	"tile-6-1": "10.1.1.42",
-	"tile-6-2": "10.1.1.43",
-	"tile-6-3": "10.1.1.44"}
+	"compute-1-1": "compute-1-1",
+}
 
 var path string
 
@@ -108,9 +82,9 @@ func SegmentHandler(w http.ResponseWriter, r *http.Request) {
 
 func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 
-	log.Println("Received segment from wormgate at", r.RemoteAddr)
+	log.Println("Received segment from", r.RemoteAddr)
 
-	// we'll extrackt and execute our segment in a new folder
+	// we'll extract and execute our segment in a new folder
 	randomstring := fmt.Sprintf("%x", rand.Int63())
 	extractionpath := path + "/" + randomstring
 	filename := "tmp.tar.gz"
