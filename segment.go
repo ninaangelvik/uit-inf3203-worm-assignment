@@ -1,7 +1,7 @@
 package main
 
 import (
-	// "flag"
+	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -10,7 +10,8 @@ import (
 
 func main() {
 
-	// spreadMode = flag.NewFlagSet("spread", flag.ExitOnError)
+	var spreadMode = flag.NewFlagSet("spread", flag.ExitOnError)
+	var spreadHost = spreadMode.String("host", "localhost", "host to spread to")
 
 	if len(os.Args) == 1 {
 		log.Fatalf("No mode specified\n")
@@ -18,8 +19,8 @@ func main() {
 
 	switch os.Args[1] {
 	case "spread":
-		// spreadMode.Parse(os.Args[2:])
-		sendSegment()
+		spreadMode.Parse(os.Args[2:])
+		sendSegment(*spreadHost)
 	case "run":
 		// TODO
 	default:
@@ -27,12 +28,13 @@ func main() {
 	}
 }
 
-func sendSegment() {
+func sendSegment(address string) {
 
-	address := "http://localhost"
 	port := ":8181"
-	url := address + port + "/segment"
+	url := "http://" + address + port + "/segment"
 	filename := "tmp.tar.gz"
+
+	log.Printf("Spreading to %s", url)
 
 	// ship the binary and the qml file that describes our screen output
 	tarCmd := exec.Command("tar", "-zc", "-f"+filename,
@@ -51,5 +53,4 @@ func sendSegment() {
 	}
 
 	log.Println("repsonse:", resp)
-
 }
