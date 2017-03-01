@@ -23,6 +23,9 @@ var path string
 
 func main() {
 
+	var hostname, _ = os.Hostname()
+	log.SetPrefix(hostname + " wormgate: ")
+
 	curuser, err := user.Current()
 	if err!=nil {
 		log.Panic(err)

@@ -10,6 +10,9 @@ import (
 
 func main() {
 
+	var hostname, _ = os.Hostname()
+	log.SetPrefix(hostname + " segment: ")
+
 	var spreadMode = flag.NewFlagSet("spread", flag.ExitOnError)
 	var spreadHost = spreadMode.String("host", "localhost", "host to spread to")
 

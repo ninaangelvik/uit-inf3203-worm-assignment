@@ -9,6 +9,9 @@ import (
 
 func main() {
 
+	var hostname, _ = os.Hostname()
+	log.SetPrefix(hostname + " payload: ")
+
 	err := run()
 	if err != nil {
 		log.Panicf("Run error: %q", err)
