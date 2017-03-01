@@ -1,6 +1,7 @@
 package main
 
 import (
+	// "flag"
 	"log"
 	"net/http"
 	"os"
@@ -9,8 +10,21 @@ import (
 
 func main() {
 
-	sendSegment()
+	// spreadMode = flag.NewFlagSet("spread", flag.ExitOnError)
 
+	if len(os.Args) == 1 {
+		log.Fatalf("No mode specified\n")
+	}
+
+	switch os.Args[1] {
+	case "spread":
+		// spreadMode.Parse(os.Args[2:])
+		sendSegment()
+	case "run":
+		// TODO
+	default:
+		log.Fatalf("Unknown mode %q\n", os.Args[1])
+	}
 }
 
 func sendSegment() {
