@@ -13,6 +13,9 @@ import (
 	"time"
 )
 
+const wormgatePort = ":8181"
+const segmentPort = ":8182"
+
 var path string
 
 func main() {
@@ -39,10 +42,9 @@ func main() {
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/wormgate", WormGateHandler)
 
-	port := ":8181"
-	log.Printf("Started wormgate on %s%s\n", hostname, port)
+	log.Printf("Started wormgate on %s%s\n", hostname, wormgatePort)
 
-	err = http.ListenAndServe(port, nil)
+	err = http.ListenAndServe(wormgatePort, nil)
 
 	if err != nil {
 		log.Panic(err)
