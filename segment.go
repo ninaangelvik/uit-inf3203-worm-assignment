@@ -62,6 +62,7 @@ func sendSegment(address string) {
 	} else {
 		log.Println("Response: ", resp)
 	}
+	resp.Body.Close()
 }
 
 func startPayload() {

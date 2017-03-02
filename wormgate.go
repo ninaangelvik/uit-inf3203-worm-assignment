@@ -79,6 +79,7 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Panic("Could not read body from http POST", err)
 	}
+	r.Body.Close()
 
 	// Write tarball to file
 	file.Write(body)
