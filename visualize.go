@@ -81,6 +81,10 @@ func pollNode(host string) status {
 	wormgateUrl := fmt.Sprintf("http://%s%s/", host, wormgatePort)
 	resp, err := http.Get(wormgateUrl)
 	wormgate := err==nil && resp.StatusCode == 200
+	if err==nil {
+		resp.Body.Close()
+	}
+
 	return status{wormgate, false}
 }
 
