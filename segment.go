@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -9,9 +10,14 @@ import (
 	"path/filepath"
 )
 
+const wormgatePort = ":8181"
+const segmentPort = ":8182"
+
+var hostname string
+
 func main() {
 
-	var hostname, _ = os.Hostname()
+	hostname, _ = os.Hostname()
 	log.SetPrefix(hostname + " segment: ")
 
 	var spreadMode = flag.NewFlagSet("spread", flag.ExitOnError)
@@ -27,6 +33,7 @@ func main() {
 		sendSegment(*spreadHost)
 	case "run":
 		startPayload()
+		startSegmentServer()
 
 	default:
 		log.Fatalf("Unknown mode %q\n", os.Args[1])
@@ -35,8 +42,7 @@ func main() {
 
 func sendSegment(address string) {
 
-	port := ":8181"
-	url := "http://" + address + port + "/wormgate"
+	url := "http://" + address + wormgatePort + "/wormgate"
 	filename := "tmp.tar.gz"
 
 	log.Printf("Spreading to %s", url)
@@ -83,4 +89,19 @@ func startPayload() {
 	if err != nil {
 		log.Panic("Error starting payload: ", err)
 	}
+}
+
+func startSegmentServer() {
+	http.HandleFunc("/", IndexHandler)
+
+	log.Printf("Starting segment server on %s%s\n", hostname, segmentPort)
+	err := http.ListenAndServe(segmentPort, nil)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func IndexHandler(w http.ResponseWriter, r *http.Request) {
+	body := "Segment running on " + hostname
+	fmt.Fprintf(w, "<h1>%s</h1></br><p>No further instructions</p>", body)
 }

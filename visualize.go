@@ -21,6 +21,7 @@ const refreshRate = 100 * time.Millisecond
 const pollRate = refreshRate / 2
 
 const wormgatePort = ":8181"
+const segmentPort = ":8182"
 
 type status struct {
 	wormgate bool
@@ -84,13 +85,20 @@ func pollNodeForever(statuses *statusMap, node string) {
 
 func pollNode(host string) status {
 	wormgateUrl := fmt.Sprintf("http://%s%s/", host, wormgatePort)
-	resp, err := http.Get(wormgateUrl)
-	wormgate := err==nil && resp.StatusCode == 200
+	segmentUrl := fmt.Sprintf("http://%s%s/", host, segmentPort)
+	wormgate := httpGetOk(wormgateUrl)
+	segment := httpGetOk(segmentUrl)
+
+	return status{wormgate, segment}
+}
+
+func httpGetOk(url string) bool {
+	resp, err := http.Get(url)
+	ok := err==nil && resp.StatusCode == 200
 	if err==nil {
 		resp.Body.Close()
 	}
-
-	return status{wormgate, false}
+	return ok
 }
 
 const ansi_bold = "\033[1m"
