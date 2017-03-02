@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -14,12 +16,20 @@ import (
 const minx, maxx = 1, 3
 const miny, maxy = 0, 59
 const colwidth = 20
-const gridLines = (maxx-minx+1) * ((maxy-miny) / colwidth + 2)
+const gridLines = (maxx - minx + 1) * ((maxy-miny)/colwidth + 2)
 const refreshRate = 100 * time.Millisecond
+const pollRate = refreshRate / 2
+
+const wormgatePort = ":8181"
 
 type status struct {
 	wormgate bool
 	segment  bool
+}
+
+type statusMap struct {
+	sync.RWMutex
+	m map[string]status
 }
 
 func main() {
@@ -33,9 +43,9 @@ func main() {
 
 	nodes := strings.Split(string(out), "\n")
 
-	var statuses = make(map[string]status)
+	var statuses = statusMap{m: make(map[string]status)}
 	for _, node := range nodes {
-		statuses[node] = status{false, false}
+		statuses.m[node] = status{false, false}
 	}
 
 	// Catch interrupt and quit
@@ -49,11 +59,29 @@ func main() {
 		os.Exit(0)
 	}()
 
+	// Start poll routines
+	go func(node string) {
+		for {
+			status := pollNode(node)
+			statuses.Lock()
+			statuses.m[node] = status
+			statuses.Unlock()
+			time.Sleep(pollRate)
+		}
+	}("compute-1-1")
+
 	// Loop display forever
 	for {
 		nodeGrid(&statuses)
 		time.Sleep(refreshRate)
 	}
+}
+
+func pollNode(host string) status {
+	wormgateUrl := fmt.Sprintf("http://%s%s/", host, wormgatePort)
+	resp, err := http.Get(wormgateUrl)
+	wormgate := err==nil && resp.StatusCode == 200
+	return status{wormgate, false}
 }
 
 const ansi_bold = "\033[1m"
@@ -67,7 +95,10 @@ func ansi_up_lines(n int) string {
 	return fmt.Sprintf("\033[%dF", n)
 }
 
-func nodeGrid(statuses *map[string]status) {
+func nodeGrid(statuses *statusMap) {
+	statuses.RLock()
+	defer statuses.RUnlock()
+
 	for x := minx; x <= maxx; x++ {
 		for y := miny; y <= maxy; y++ {
 			if y%colwidth == 0 {
@@ -77,7 +108,7 @@ func nodeGrid(statuses *map[string]status) {
 				fmt.Printf("|")
 			}
 			node := fmt.Sprintf("compute-%d-%d", x, y)
-			status, nodeup := (*statuses)[node]
+			status, nodeup := statuses.m[node]
 
 			var char string
 			if nodeup {
