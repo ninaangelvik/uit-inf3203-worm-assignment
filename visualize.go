@@ -60,20 +60,25 @@ func main() {
 	}()
 
 	// Start poll routines
-	go func(node string) {
-		for {
-			status := pollNode(node)
-			statuses.Lock()
-			statuses.m[node] = status
-			statuses.Unlock()
-			time.Sleep(pollRate)
-		}
-	}("compute-1-1")
+	for node, _ := range statuses.m {
+		go pollNodeForever(&statuses, node)
+	}
 
 	// Loop display forever
 	for {
 		nodeGrid(&statuses)
 		time.Sleep(refreshRate)
+	}
+}
+
+func pollNodeForever(statuses *statusMap, node string) {
+	log.Printf("Starting poll routine for %s", node)
+	for {
+		s := pollNode(node)
+		statuses.Lock()
+		statuses.m[node] = s
+		statuses.Unlock()
+		time.Sleep(pollRate)
 	}
 }
 
