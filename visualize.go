@@ -16,7 +16,7 @@ import (
 const minx, maxx = 1, 3
 const miny, maxy = 0, 59
 const colwidth = 20
-const gridLines = (maxx - minx + 1) * ((maxy-miny)/colwidth + 2)
+const gridLines = (maxx - minx + 1) * ((maxy-miny)/colwidth + 2) + 2
 const refreshRate = 100 * time.Millisecond
 const pollRate = refreshRate / 2
 
@@ -128,5 +128,7 @@ func nodeGrid(statuses *statusMap) {
 		}
 		fmt.Println()
 	}
+	fmt.Println()
+	fmt.Println(time.Now().Format(time.StampMilli))
 	fmt.Print(ansi_up_lines(gridLines))
 }
