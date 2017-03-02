@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,7 +17,7 @@ import (
 const minx, maxx = 1, 3
 const miny, maxy = 0, 59
 const colwidth = 20
-const gridLines = (maxx - minx + 1) * ((maxy-miny)/colwidth + 2) + 2
+const gridLines = (maxx - minx + 1) * ((maxy-miny)/colwidth + 2) + 4
 const refreshRate = 100 * time.Millisecond
 const pollRate = refreshRate / 2
 
@@ -31,6 +32,11 @@ type status struct {
 type statusMap struct {
 	sync.RWMutex
 	m map[string]status
+}
+
+var killRate struct {
+	sync.RWMutex
+	r int
 }
 
 func main() {
@@ -64,6 +70,9 @@ func main() {
 	for node, _ := range statuses.m {
 		go pollNodeForever(&statuses, node)
 	}
+
+	// Start input routine
+	go inputHandler()
 
 	// Loop display forever
 	for {
@@ -101,9 +110,34 @@ func httpGetOk(url string) bool {
 	return ok
 }
 
+func inputHandler() {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		input, _ := reader.ReadString('\n')
+		killRate.Lock()
+		for _, ch := range input {
+			switch ch {
+			case 'u':
+				killRate.r += 1
+			case 'U':
+				killRate.r += 10
+			case 'd':
+				killRate.r -= 1
+			case 'D':
+				killRate.r -= 10
+			}
+		}
+		if killRate.r < 0 {
+			killRate.r = 0
+		}
+		killRate.Unlock()
+	}
+}
+
 const ansi_bold = "\033[1m"
 const ansi_reset = "\033[0m"
 const ansi_reverse = "\033[30;47m"
+const ansi_clear_to_end = "\033[0J"
 
 func ansi_down_lines(n int) string {
 	return fmt.Sprintf("\033[%dE", n)
@@ -116,6 +150,8 @@ func nodeGrid(statuses *statusMap) {
 	statuses.RLock()
 	defer statuses.RUnlock()
 
+	fmt.Print(ansi_clear_to_end)
+	fmt.Println()
 	for x := minx; x <= maxx; x++ {
 		for y := miny; y <= maxy; y++ {
 			if y%colwidth == 0 {
@@ -146,6 +182,11 @@ func nodeGrid(statuses *statusMap) {
 		fmt.Println()
 	}
 	fmt.Println()
+
+	killRate.RLock()
+	fmt.Printf("Kill rate: %d/sec\n", killRate.r)
+	killRate.RUnlock()
+
 	fmt.Println(time.Now().Format(time.StampMilli))
 	fmt.Print(ansi_up_lines(gridLines))
 }
