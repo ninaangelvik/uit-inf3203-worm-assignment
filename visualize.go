@@ -3,9 +3,19 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 )
+
+const minx, maxx = 1, 3
+const miny, maxy = 0, 59
+const colwidth = 20
+const gridLines = (maxx-minx+1) * ((maxy-miny) / colwidth + 2)
+const refreshRate = 100 * time.Millisecond
 
 type status struct {
 	wormgate bool
@@ -28,17 +38,38 @@ func main() {
 		statuses[node] = status{false, false}
 	}
 
-	nodeGrid(&statuses)
+	// Catch interrupt and quit
+	interrupt := make(chan os.Signal, 2)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-interrupt
+		fmt.Print(ansi_down_lines(gridLines))
+		fmt.Println()
+		log.Print("Shutting down")
+		os.Exit(0)
+	}()
+
+	// Loop display forever
+	for {
+		nodeGrid(&statuses)
+		time.Sleep(refreshRate)
+	}
 }
 
 const ansi_bold = "\033[1m"
 const ansi_reset = "\033[0m"
 const ansi_reverse = "\033[30;47m"
 
+func ansi_down_lines(n int) string {
+	return fmt.Sprintf("\033[%dE", n)
+}
+func ansi_up_lines(n int) string {
+	return fmt.Sprintf("\033[%dF", n)
+}
+
 func nodeGrid(statuses *map[string]status) {
-	colwidth := 20
-	for x := 1; x <= 3; x++ {
-		for y := 0; y < 60; y++ {
+	for x := minx; x <= maxx; x++ {
+		for y := miny; y <= maxy; y++ {
 			if y%colwidth == 0 {
 				fmt.Printf("\n%d: %02d+", x, y/colwidth*colwidth)
 			}
@@ -66,4 +97,5 @@ func nodeGrid(statuses *map[string]status) {
 		}
 		fmt.Println()
 	}
+	fmt.Print(ansi_up_lines(gridLines))
 }
