@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"sync"
 	"time"
 )
 
@@ -17,6 +18,11 @@ const wormgatePort = ":8181"
 const segmentPort = ":8182"
 
 var path string
+
+var runningSegment struct {
+	sync.RWMutex
+	p *os.Process
+}
 
 func main() {
 
@@ -41,6 +47,7 @@ func main() {
 
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/wormgate", WormGateHandler)
+	http.HandleFunc("/killsegment", killSegmentHandler)
 
 	log.Printf("Started wormgate on %s%s\n", hostname, wormgatePort)
 
@@ -52,6 +59,7 @@ func main() {
 }
 
 func WormGateHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
 
 	log.Println("Received segment from", r.RemoteAddr)
 
@@ -81,7 +89,6 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Panic("Could not read body from http POST", err)
 	}
-	r.Body.Close()
 
 	// Write tarball to file
 	file.Write(body)
@@ -111,9 +118,36 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Panic("Error starting segment ", err)
 	}
+	runningSegment.Lock()
+	runningSegment.p = cmd.Process
+	runningSegment.Unlock()
+}
+
+func killSegmentHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	runningSegment.Lock()
+	if runningSegment.p != nil {
+		pid := runningSegment.p.Pid
+		log.Printf("Killing segment process %d", pid)
+		err := runningSegment.p.Kill()
+		if err!=nil {
+			log.Panicf("Could not kill segment process %d: %s",
+				pid, err)
+		}
+		runningSegment.p = nil
+		fmt.Fprintf(w, "Killed segment process %d\n", pid)
+	} else {
+		msg := "No segment process to kill\n"
+		log.Printf(msg)
+		fmt.Fprintf(w, msg)
+	}
+	runningSegment.Unlock()
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
 	hostname, _ := os.Hostname()
 	body := "Wormgate running on " + hostname
 	fmt.Fprintf(w, "<h1>%s</h1></br><p>Post segments to to /segment</p>", body)
