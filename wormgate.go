@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -126,6 +127,9 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 func killSegmentHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
+	// We don't use the body, but read it anyway
+	io.Copy(ioutil.Discard, r.Body)
+
 	runningSegment.Lock()
 	if runningSegment.p != nil {
 		pid := runningSegment.p.Pid
@@ -147,6 +151,9 @@ func killSegmentHandler(w http.ResponseWriter, r *http.Request) {
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+
+	// We don't use the body, but read it anyway
+	io.Copy(ioutil.Discard, r.Body)
 
 	hostname, _ := os.Hostname()
 	body := "Wormgate running on " + hostname
