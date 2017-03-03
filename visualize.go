@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -134,6 +136,7 @@ func httpGetOk(url string) (bool,error) {
 			log.Printf("Error checking %s: %s", url, err)
 		}
 	} else {
+		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
 	}
 	return isOk,err
@@ -203,6 +206,7 @@ func doKillPost(node string) error {
 		log.Printf("Error killing %s: %s", node, err)
 	}
 	if err == nil {
+		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
 	}
 	return err
