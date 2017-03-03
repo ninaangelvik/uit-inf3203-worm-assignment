@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -63,12 +65,14 @@ func sendSegment(address string) {
 		log.Panic("POST error ", err)
 	}
 
+	io.Copy(ioutil.Discard, resp.Body)
+	resp.Body.Close()
+
 	if resp.StatusCode == 200 {
 		log.Println("Received OK from server")
 	} else {
 		log.Println("Response: ", resp)
 	}
-	resp.Body.Close()
 }
 
 func startPayload() {
@@ -102,6 +106,11 @@ func startSegmentServer() {
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
+
+	// We don't use the body, but read it anyway
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+
 	body := "Segment running on " + hostname
 	fmt.Fprintf(w, "<h1>%s</h1></br><p>No further instructions</p>", body)
 }

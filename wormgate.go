@@ -150,10 +150,10 @@ func killSegmentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
 
 	// We don't use the body, but read it anyway
 	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
 
 	hostname, _ := os.Hostname()
 	body := "Wormgate running on " + hostname
