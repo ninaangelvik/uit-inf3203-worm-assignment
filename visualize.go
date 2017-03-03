@@ -21,6 +21,7 @@ const colwidth = 20
 const gridLines = (maxx-minx+1)*((maxy-miny)/colwidth+2) + 4
 const refreshRate = 100 * time.Millisecond
 const pollRate = refreshRate / 2
+const pollErrWait = 20 * time.Second
 
 const wormgatePort = ":8181"
 const segmentPort = ":8182"
@@ -28,6 +29,7 @@ const segmentPort = ":8182"
 type status struct {
 	wormgate bool
 	segment  bool
+	err      bool
 }
 
 type statusMap struct {
@@ -45,7 +47,7 @@ func main() {
 
 	var statuses = statusMap{m: make(map[string]status)}
 	for _, node := range nodes {
-		statuses.m[node] = status{false, false}
+		statuses.m[node] = status{}
 	}
 
 	// Catch interrupt and quit
@@ -94,27 +96,31 @@ func listNodes() []string {
 func pollNodeForever(statuses *statusMap, node string) {
 	log.Printf("Starting poll routine for %s", node)
 	for {
-		s,err1,err2 := pollNode(node)
-		if err1!=nil || err2!=nil {
-			statuses.Lock()
-			delete(statuses.m,node)
-			statuses.Unlock()
-			return
-		}
+		s := pollNode(node)
 		statuses.Lock()
 		statuses.m[node] = s
 		statuses.Unlock()
-		time.Sleep(pollRate)
+		if s.err {
+			time.Sleep(pollErrWait)
+		} else {
+			time.Sleep(pollRate)
+		}
 	}
 }
 
-func pollNode(host string) (status, error, error) {
+func pollNode(host string) status {
 	wormgateUrl := fmt.Sprintf("http://%s%s/", host, wormgatePort)
 	segmentUrl := fmt.Sprintf("http://%s%s/", host, segmentPort)
 	wormgate,err1 := httpGetOk(wormgateUrl)
+	if err1!=nil {
+		return status{false, false, true}
+	}
 	segment,err2 := httpGetOk(segmentUrl)
+	if err2!=nil {
+		return status{false, false, true}
+	}
 
-	return status{wormgate, segment}, err1, err2
+	return status{wormgate, segment, false}
 }
 
 func httpGetOk(url string) (bool,error) {
@@ -205,6 +211,7 @@ func doKillPost(node string) error {
 const ansi_bold = "\033[1m"
 const ansi_reset = "\033[0m"
 const ansi_reverse = "\033[30;47m"
+const ansi_red_bg = "\033[30;41m"
 const ansi_clear_to_end = "\033[0J"
 
 func ansi_down_lines(n int) string {
@@ -238,11 +245,15 @@ func nodeGrid(statuses *statusMap) {
 				char = " "
 			}
 
-			if status.wormgate {
-				fmt.Print(ansi_bold)
-			}
-			if status.segment {
-				fmt.Print(ansi_reverse)
+			if status.err {
+				fmt.Print(ansi_red_bg)
+			} else {
+				if status.wormgate {
+					fmt.Print(ansi_bold)
+				}
+				if status.segment {
+					fmt.Print(ansi_reverse)
+				}
 			}
 			fmt.Print(char)
 			fmt.Print(ansi_reset)
