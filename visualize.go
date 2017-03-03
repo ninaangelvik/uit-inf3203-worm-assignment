@@ -44,6 +44,24 @@ var killRate struct {
 	r int
 }
 
+// Use separate clients for wormgates vs segments
+//
+// There is something about making connections to the same host at different
+// ports that confuses the connection caching and reuse. If we just use the
+// default Client with the default Transfer, the number of open connections
+// balloons during polling until we can't connect anymore. But using separate
+// clients for each port (but multiple hosts) works fine.
+//
+var wormgateClient *http.Client
+var segmentClient *http.Client
+
+func createClient() *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+		},
+	}
+}
+
 func main() {
 	nodes := listNodes()
 
@@ -51,6 +69,9 @@ func main() {
 	for _, node := range nodes {
 		statuses.m[node] = status{}
 	}
+
+	segmentClient = createClient()
+	wormgateClient = createClient()
 
 	// Catch interrupt and quit
 	interrupt := make(chan os.Signal, 2)
@@ -113,11 +134,11 @@ func pollNodeForever(statuses *statusMap, node string) {
 func pollNode(host string) status {
 	wormgateUrl := fmt.Sprintf("http://%s%s/", host, wormgatePort)
 	segmentUrl := fmt.Sprintf("http://%s%s/", host, segmentPort)
-	wormgate,err1 := httpGetOk(wormgateUrl)
+	wormgate,err1 := httpGetOk(wormgateClient,wormgateUrl)
 	if err1!=nil {
 		return status{false, false, true}
 	}
-	segment,err2 := httpGetOk(segmentUrl)
+	segment,err2 := httpGetOk(segmentClient,segmentUrl)
 	if err2!=nil {
 		return status{false, false, true}
 	}
@@ -125,8 +146,8 @@ func pollNode(host string) status {
 	return status{wormgate, segment, false}
 }
 
-func httpGetOk(url string) (bool,error) {
-	resp, err := http.Get(url)
+func httpGetOk(client *http.Client, url string) (bool,error) {
+	resp, err := client.Get(url)
 	isOk := err == nil && resp.StatusCode == 200
 	if err != nil {
 		if strings.Contains(fmt.Sprint(err), "connection refused") {
@@ -201,7 +222,7 @@ func killRandomNode(statuses *statusMap) {
 
 func doKillPost(node string) error {
 	url := fmt.Sprintf("http://%s%s/killsegment", node, wormgatePort)
-	resp, err := http.PostForm(url, nil)
+	resp, err := wormgateClient.PostForm(url, nil)
 	if err != nil && !strings.Contains(fmt.Sprint(err), "refused") {
 		log.Printf("Error killing %s: %s", node, err)
 	}
