@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -17,7 +18,7 @@ import (
 const minx, maxx = 1, 3
 const miny, maxy = 0, 59
 const colwidth = 20
-const gridLines = (maxx - minx + 1) * ((maxy-miny)/colwidth + 2) + 4
+const gridLines = (maxx-minx+1)*((maxy-miny)/colwidth+2) + 4
 const refreshRate = 100 * time.Millisecond
 const pollRate = refreshRate / 2
 
@@ -40,15 +41,7 @@ var killRate struct {
 }
 
 func main() {
-	cmdline := []string{"/share/apps/bin/available-nodes.sh"}
-	log.Printf("Getting list of nodes: %q", cmdline)
-	cmd := exec.Command(cmdline[0], cmdline[1:]...)
-	out, err := cmd.Output()
-	if err != nil {
-		log.Panic("Error getting available nodes", err)
-	}
-
-	nodes := strings.Split(string(out), "\n")
+	nodes := listNodes()
 
 	var statuses = statusMap{m: make(map[string]status)}
 	for _, node := range nodes {
@@ -74,6 +67,9 @@ func main() {
 	// Start input routine
 	go inputHandler()
 
+	// Start random node killer
+	go killNodesForever(&statuses)
+
 	// Loop display forever
 	for {
 		nodeGrid(&statuses)
@@ -81,10 +77,30 @@ func main() {
 	}
 }
 
+func listNodes() []string {
+	cmdline := []string{"bash", "-c",
+		"rocks list host compute | cut -d : -f1 | grep -v HOST"}
+	log.Printf("Getting list of nodes: %q", cmdline)
+	cmd := exec.Command(cmdline[0], cmdline[1:]...)
+	out, err := cmd.Output()
+	if err != nil {
+		log.Panic("Error getting available nodes", err)
+	}
+
+	nodes := strings.Split(string(out), "\n")
+	return nodes
+}
+
 func pollNodeForever(statuses *statusMap, node string) {
 	log.Printf("Starting poll routine for %s", node)
 	for {
-		s := pollNode(node)
+		s,err1,err2 := pollNode(node)
+		if err1!=nil || err2!=nil {
+			statuses.Lock()
+			delete(statuses.m,node)
+			statuses.Unlock()
+			return
+		}
 		statuses.Lock()
 		statuses.m[node] = s
 		statuses.Unlock()
@@ -92,22 +108,29 @@ func pollNodeForever(statuses *statusMap, node string) {
 	}
 }
 
-func pollNode(host string) status {
+func pollNode(host string) (status, error, error) {
 	wormgateUrl := fmt.Sprintf("http://%s%s/", host, wormgatePort)
 	segmentUrl := fmt.Sprintf("http://%s%s/", host, segmentPort)
-	wormgate := httpGetOk(wormgateUrl)
-	segment := httpGetOk(segmentUrl)
+	wormgate,err1 := httpGetOk(wormgateUrl)
+	segment,err2 := httpGetOk(segmentUrl)
 
-	return status{wormgate, segment}
+	return status{wormgate, segment}, err1, err2
 }
 
-func httpGetOk(url string) bool {
+func httpGetOk(url string) (bool,error) {
 	resp, err := http.Get(url)
-	ok := err==nil && resp.StatusCode == 200
-	if err==nil {
+	isOk := err == nil && resp.StatusCode == 200
+	if err != nil {
+		if strings.Contains(fmt.Sprint(err), "connection refused") {
+			// ignore connection refused errors
+			err = nil
+		} else {
+			log.Printf("Error checking %s: %s", url, err)
+		}
+	} else {
 		resp.Body.Close()
 	}
-	return ok
+	return isOk,err
 }
 
 func inputHandler() {
@@ -132,6 +155,51 @@ func inputHandler() {
 		}
 		killRate.Unlock()
 	}
+}
+
+func killNodesForever(statuses *statusMap) {
+	for {
+		killRate.RLock()
+		kr := killRate.r
+		killRate.RUnlock()
+		if kr == 0 {
+			// do nothing
+			time.Sleep(time.Second)
+		} else {
+			killRandomNode(statuses)
+			killWait := time.Duration(1000/kr) * time.Millisecond
+			time.Sleep(killWait)
+		}
+	}
+}
+
+func killRandomNode(statuses *statusMap) {
+	var segmentNodes []string
+	statuses.RLock()
+	for node, status := range statuses.m {
+		if status.segment {
+			segmentNodes = append(segmentNodes, node)
+		}
+	}
+	statuses.RUnlock()
+	if len(segmentNodes) > 0 {
+		ri := rand.Intn(len(segmentNodes))
+		target := segmentNodes[ri]
+		log.Printf("Killing segment on %s", target)
+		doKillPost(target)
+	}
+}
+
+func doKillPost(node string) error {
+	url := fmt.Sprintf("http://%s%s/killsegment", node, wormgatePort)
+	resp, err := http.PostForm(url, nil)
+	if err != nil && !strings.Contains(fmt.Sprint(err), "refused") {
+		log.Printf("Error killing %s: %s", node, err)
+	}
+	if err == nil {
+		resp.Body.Close()
+	}
+	return err
 }
 
 const ansi_bold = "\033[1m"
