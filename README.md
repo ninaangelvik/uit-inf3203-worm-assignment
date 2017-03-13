@@ -8,7 +8,8 @@ The code is primarily written in Go and is designed to run on our Rocks cluster
 at the university.
 
 This document is primarily for technical details about the code. See the
-assignment PDF for more general information about the assignment.
+[assignment PDF](assignment.pdf) for more general information about the
+assignment.
 
 
 Source files
