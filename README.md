@@ -252,11 +252,11 @@ every node in the cluster:
     # Kill worm gate on all compute nodes
     ./ssh-all.sh killall wormgate
 
-    # Kill all of your processes on all compute nodes
-    ./ssh-all.sh killall $(whoami)
+    # Kill (SIGTERM) all of your processes on all compute nodes
+    ./ssh-all.sh killall -u $(whoami)
 
-    # Really kill (kill -9) all of your processes on all compute nodes
-    ./ssh-all.sh killall -s9 $(whoami)
+    # Really kill (SIGKILL) all of your processes on all compute nodes
+    ./ssh-all.sh killall -9 -u $(whoami)
 
     # Clean up temporary files (the untarred segments) on all compute nodes
     ./ssh-all.sh rm -r /tmp/wormgate-$(whoami)
