@@ -7,8 +7,11 @@ Systems course (INF-3203) at the University of Tromsø.
 The code is primarily written in Go and is designed to run on our Rocks cluster
 at the university.
 
+This document is primarily for technical details about the code. See the
+assignment PDF for more general information about the assignment.
 
-Files
+
+Source files
 --------------------------------------------------
 
 Go source files:
