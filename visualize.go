@@ -223,9 +223,7 @@ func inputHandler() {
 		log.Printf("Partition scheme: %d -> %d", prevps, ps)
 
 		if ps!=prevps {
-			log.Print("posting scheme...")
 			for _,target := range allWormgateNodes() {
-				log.Print("posting scheme %s", target)
 				doPartitionSchemePost(target,ps)
 			}
 		}
