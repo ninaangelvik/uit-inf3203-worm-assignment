@@ -10,12 +10,16 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync/atomic"
 )
 
 const wormgatePort = ":8181"
 const segmentPort = ":8182"
 
 var hostname string
+
+var targetSegments int32
+
 
 func main() {
 
@@ -75,6 +79,7 @@ func sendSegment(address string) {
 
 func startSegmentServer() {
 	http.HandleFunc("/", IndexHandler)
+	http.HandleFunc("/targetsegments", targetSegmentsHandler)
 
 	log.Printf("Starting segment server on %s%s\n", hostname, segmentPort)
 	log.Printf("Reachable hosts: %s", strings.Join(fetchReachableHosts()," "))
@@ -95,6 +100,22 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%.3f\n", killRateGuess)
 }
 
+func targetSegmentsHandler(w http.ResponseWriter, r *http.Request) {
+
+	var ts int32
+	pc, rateErr := fmt.Fscanf(r.Body, "%d", &ts)
+	if pc != 1 || rateErr != nil {
+		log.Printf("Error parsing targetSegments (%d items): %s", pc, rateErr)
+	}
+
+	// Consume and close rest of body
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+
+	log.Printf("New targetSegments: %d", ts)
+	atomic.StoreInt32(&targetSegments, ts)
+}
+
 func fetchReachableHosts() []string {
 	url := fmt.Sprintf("http://localhost%s/reachablehosts", wormgatePort)
 	resp, err := http.Get(url)
@@ -106,7 +127,6 @@ func fetchReachableHosts() []string {
 	bytes, err = ioutil.ReadAll(resp.Body)
 	body := string(bytes)
 	resp.Body.Close()
-
 
 	trimmed := strings.TrimSpace(body)
 	nodes := strings.Split(trimmed, "\n")

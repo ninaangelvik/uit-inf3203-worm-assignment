@@ -13,6 +13,7 @@ import (
 	"./rocks"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -35,15 +36,13 @@ type status struct {
 	rateErr   error
 }
 
-type statusMap struct {
+var statusMap struct {
 	sync.RWMutex
 	m map[string]status
 }
 
-var killRate struct {
-	sync.RWMutex
-	r int
-}
+var killRate int32;
+var targetSegments int32;
 
 // Use separate clients for wormgates vs segments
 //
@@ -65,10 +64,12 @@ func createClient() *http.Client {
 func main() {
 	nodes := rocks.ListNodes()
 
-	var statuses = statusMap{m: make(map[string]status)}
+	statusMap.m = make(map[string]status)
 	for _, node := range nodes {
-		statuses.m[node] = status{}
+		statusMap.m[node] = status{}
 	}
+
+	targetSegments = 5
 
 	segmentClient = createClient()
 	wormgateClient = createClient()
@@ -85,30 +86,30 @@ func main() {
 	}()
 
 	// Start poll routines
-	for node, _ := range statuses.m {
-		go pollNodeForever(&statuses, node)
+	for node, _ := range statusMap.m {
+		go pollNodeForever(node)
 	}
 
 	// Start input routine
 	go inputHandler()
 
 	// Start random node killer
-	go killNodesForever(&statuses)
+	go killNodesForever()
 
 	// Loop display forever
 	for {
-		nodeGrid(&statuses)
+		printNodeGrid()
 		time.Sleep(refreshRate)
 	}
 }
 
-func pollNodeForever(statuses *statusMap, node string) {
+func pollNodeForever(node string) {
 	log.Printf("Starting poll routine for %s", node)
 	for {
 		s := pollNode(node)
-		statuses.Lock()
-		statuses.m[node] = s
-		statuses.Unlock()
+		statusMap.Lock()
+		statusMap.m[node] = s
+		statusMap.Unlock()
 		if s.err {
 			time.Sleep(pollErrWait)
 		} else {
@@ -167,66 +168,113 @@ func httpGetOk(client *http.Client, url string) (bool, string, error) {
 
 func inputHandler() {
 	reader := bufio.NewReader(os.Stdin)
+
 	for {
 		input, _ := reader.ReadString('\n')
-		killRate.Lock()
+		log.Printf("Input: %s", input)
+
+		kr := atomic.LoadInt32(&killRate)
+		ts := atomic.LoadInt32(&targetSegments)
+
 		for _, ch := range input {
 			switch ch {
-			case 'u':
-				killRate.r += 1
-			case 'U':
-				killRate.r += 10
-			case 'd':
-				killRate.r -= 1
-			case 'D':
-				killRate.r -= 10
+			case 'k':
+				kr += 1
+			case 'K':
+				kr += 10
+			case 'j':
+				kr -= 1
+			case 'J':
+				kr -= 10
+			case '=': fallthrough
+			case '+':
+				ts += 1
+			case '_': fallthrough
+			case '-':
+				ts -= 1
 			}
 		}
-		if killRate.r < 0 {
-			killRate.r = 0
+		if kr < 0 {
+			kr = 0
 		}
-		killRate.Unlock()
+		if ts < 1 {
+			ts = 1
+		}
+
+		prevts := atomic.SwapInt32(&targetSegments, ts)
+		log.Printf("Target segments: %d -> %d", prevts, ts)
+
+		prevkr := atomic.SwapInt32(&killRate, kr)
+		log.Printf("Kill rate: %d -> %d", prevkr, kr)
+
+		if ts!=prevts {
+			for _,target := range randomSegment() {
+				doTargetSegmentsPost(target,ts)
+			}
+		}
 	}
 }
 
-func killNodesForever(statuses *statusMap) {
+func killNodesForever() {
 	for {
-		killRate.RLock()
-		kr := killRate.r
-		killRate.RUnlock()
+		kr := atomic.LoadInt32(&killRate)
 		if kr == 0 {
 			// do nothing
 			time.Sleep(time.Second)
 		} else {
-			killRandomNode(statuses)
+			killRandomNode()
 			killWait := time.Duration(1000/kr) * time.Millisecond
 			time.Sleep(killWait)
 		}
 	}
 }
 
-func killRandomNode(statuses *statusMap) {
+func randomSegment() []string {
 	var segmentNodes []string
-	statuses.RLock()
-	for node, status := range statuses.m {
+	statusMap.RLock()
+	for node, status := range statusMap.m {
 		if status.segment {
 			segmentNodes = append(segmentNodes, node)
 		}
 	}
-	statuses.RUnlock()
+	statusMap.RUnlock()
 	if len(segmentNodes) > 0 {
 		ri := rand.Intn(len(segmentNodes))
-		target := segmentNodes[ri]
-		log.Printf("Killing segment on %s", target)
+		return segmentNodes[ri:ri+1]
+	} else {
+		return []string{}
+	}
+}
+
+func killRandomNode() {
+	for _,target := range randomSegment() {
 		doKillPost(target)
 	}
 }
 
 func doKillPost(node string) error {
+	log.Printf("Killing segment on %s", node)
 	url := fmt.Sprintf("http://%s%s/killsegment", node, wormgatePort)
 	resp, err := wormgateClient.PostForm(url, nil)
 	if err != nil && !strings.Contains(fmt.Sprint(err), "refused") {
 		log.Printf("Error killing %s: %s", node, err)
+	}
+	if err == nil {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}
+	return err
+}
+
+func doTargetSegmentsPost(node string, newts int32) error {
+	log.Printf("Posting targetSegments: %d -> %s", newts, node)
+
+	url := fmt.Sprintf("http://%s%s/targetsegments", node, segmentPort)
+	postBody := strings.NewReader(fmt.Sprint(newts))
+
+	resp, err := segmentClient.Post(url, "text/plain", postBody)
+	if err != nil && !strings.Contains(fmt.Sprint(err), "refused") {
+		log.Printf("Error posting targetSegments %s: %s", node, err)
 	}
 	if err == nil {
 		io.Copy(ioutil.Discard, resp.Body)
@@ -248,13 +296,12 @@ func ansi_up_lines(n int) string {
 	return fmt.Sprintf("\033[%dF", n)
 }
 
-const gridLines = (maxx-minx+1)*((maxy-miny)/colwidth+2) + 5
+const gridLines = (maxx-minx+1)*((maxy-miny)/colwidth+2) + 6
 
-func nodeGrid(statuses *statusMap) {
-	statuses.RLock()
-	defer statuses.RUnlock()
+func printNodeGrid() {
+	statusMap.RLock()
 
-	rateGuesses := make([]float32, 0, len(statuses.m))
+	rateGuesses := make([]float32, 0, len(statusMap.m))
 
 	fmt.Print(ansi_clear_to_end)
 	fmt.Println()
@@ -267,7 +314,7 @@ func nodeGrid(statuses *statusMap) {
 				fmt.Printf("|")
 			}
 			node := fmt.Sprintf("compute-%d-%d", x, y)
-			status, nodeup := statuses.m[node]
+			status, nodeup := statusMap.m[node]
 
 			var char string
 			if nodeup {
@@ -295,11 +342,14 @@ func nodeGrid(statuses *statusMap) {
 		}
 		fmt.Println()
 	}
+	statusMap.RUnlock()
 	fmt.Println()
 
-	killRate.RLock()
-	fmt.Printf("Kill rate: %d/sec\n", killRate.r)
-	killRate.RUnlock()
+	ts := atomic.LoadInt32(&targetSegments)
+	fmt.Printf("Target number of segments: %d\n", ts)
+
+	kr := atomic.LoadInt32(&killRate)
+	fmt.Printf("Kill rate: %d/sec\n", kr)
 	fmt.Printf("Avg guess: %.1f/sec (%d segments reporting)\n",
 		mean(rateGuesses), len(rateGuesses))
 
