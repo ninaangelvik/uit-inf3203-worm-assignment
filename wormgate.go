@@ -149,6 +149,19 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 		log.Panic("Error starting segment ", err)
 	}
 	runningSegment.p = cmd.Process
+
+	go func() {
+		// Wait for process to end and reset the process pointer
+		runningSegment.RLock()
+		p := runningSegment.p
+		runningSegment.RUnlock()
+
+		p.Wait()
+
+		runningSegment.Lock()
+		runningSegment.p = nil
+		runningSegment.Unlock()
+	}()
 }
 
 func killSegmentHandler(w http.ResponseWriter, r *http.Request) {
