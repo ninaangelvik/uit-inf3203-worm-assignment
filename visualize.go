@@ -9,8 +9,8 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
+	"./rocks"
 	"strings"
 	"sync"
 	"syscall"
@@ -63,7 +63,7 @@ func createClient() *http.Client {
 }
 
 func main() {
-	nodes := listNodes()
+	nodes := rocks.ListNodes()
 
 	var statuses = statusMap{m: make(map[string]status)}
 	for _, node := range nodes {
@@ -100,21 +100,6 @@ func main() {
 		nodeGrid(&statuses)
 		time.Sleep(refreshRate)
 	}
-}
-
-func listNodes() []string {
-	cmdline := []string{"bash", "-c",
-		"rocks list host compute | cut -d : -f1 | grep -v HOST"}
-	log.Printf("Getting list of nodes: %q", cmdline)
-	cmd := exec.Command(cmdline[0], cmdline[1:]...)
-	out, err := cmd.Output()
-	if err != nil {
-		log.Panic("Error getting available nodes", err)
-	}
-
-	trimmed := strings.TrimSpace(string(out))
-	nodes := strings.Split(trimmed, "\n")
-	return nodes
 }
 
 func pollNodeForever(statuses *statusMap, node string) {
