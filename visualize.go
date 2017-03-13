@@ -216,6 +216,8 @@ func inputHandler() {
 			ts = 1
 		}
 
+		fmt.Print(ansi_clear_to_end)
+
 		prevts := atomic.SwapInt32(&targetSegments, ts)
 		log.Printf("Target segments: %d -> %d", prevts, ts)
 
@@ -378,6 +380,7 @@ func printNodeGrid() {
 	rateGuesses := make([]float32, 0, len(statusMap.m))
 
 	fmt.Fprint(gridBuf, ansi_clear_to_end)
+	fmt.Fprintln(gridBuf)
 	fmt.Fprintln(gridBuf)
 	fmt.Fprint(gridBuf, "Legend: ")
 	fmt.Fprint(gridBuf, "node,  ")
