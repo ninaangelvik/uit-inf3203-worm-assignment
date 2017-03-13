@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"flag"
 	"io"
@@ -85,7 +86,7 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-interrupt
-		fmt.Print(ansi_down_lines(gridLines))
+		fmt.Print(ansi_clear_to_end)
 		fmt.Println()
 		log.Print("Shutting down")
 		os.Exit(0)
@@ -347,22 +348,21 @@ func ansi_up_lines(n int) string {
 	return fmt.Sprintf("\033[%dF", n)
 }
 
-const gridLines = (maxx-minx+1)*((maxy-miny)/colwidth+2) + 6
-
 func printNodeGrid() {
 	statusMap.RLock()
 
+	gridBuf := bytes.NewBuffer(nil)
 	rateGuesses := make([]float32, 0, len(statusMap.m))
 
-	fmt.Print(ansi_clear_to_end)
-	fmt.Println()
+	fmt.Fprint(gridBuf, ansi_clear_to_end)
+	fmt.Fprintln(gridBuf)
 	for x := minx; x <= maxx; x++ {
 		for y := miny; y <= maxy; y++ {
 			if y%colwidth == 0 {
-				fmt.Printf("\n%d: %02d+", x, y/colwidth*colwidth)
+				fmt.Fprintf(gridBuf, "\n%d: %02d+", x, y/colwidth*colwidth)
 			}
 			if y%10 == 0 {
-				fmt.Printf("|")
+				fmt.Fprintf(gridBuf, "|")
 			}
 			node := fmt.Sprintf("compute-%d-%d", x, y)
 			status, nodeup := statusMap.m[node]
@@ -375,37 +375,39 @@ func printNodeGrid() {
 			}
 
 			if status.err {
-				fmt.Print(ansi_red_bg)
+				fmt.Fprint(gridBuf, ansi_red_bg)
 			} else {
 				if status.wormgate {
-					fmt.Print(ansi_bold)
+					fmt.Fprint(gridBuf, ansi_bold)
 				}
 				if status.segment {
-					fmt.Print(ansi_reverse)
+					fmt.Fprint(gridBuf, ansi_reverse)
 				}
 				if status.segment && status.rateErr == nil {
 					rateGuesses = append(rateGuesses,
 						status.rateGuess)
 				}
 			}
-			fmt.Print(char)
-			fmt.Print(ansi_reset)
+			fmt.Fprint(gridBuf, char)
+			fmt.Fprint(gridBuf, ansi_reset)
 		}
-		fmt.Println()
+		fmt.Fprintln(gridBuf)
 	}
 	statusMap.RUnlock()
-	fmt.Println()
+	fmt.Fprintln(gridBuf)
 
 	ts := atomic.LoadInt32(&targetSegments)
-	fmt.Printf("Target number of segments: %d\n", ts)
+	fmt.Fprintf(gridBuf, "Target number of segments: %d\n", ts)
 
 	kr := atomic.LoadInt32(&killRate)
-	fmt.Printf("Kill rate: %d/sec\n", kr)
-	fmt.Printf("Avg guess: %.1f/sec (%d segments reporting)\n",
+	fmt.Fprintf(gridBuf, "Kill rate: %d/sec\n", kr)
+	fmt.Fprintf(gridBuf, "Avg guess: %.1f/sec (%d segments reporting)\n",
 		mean(rateGuesses), len(rateGuesses))
 
-	fmt.Println(time.Now().Format(time.StampMilli))
-	fmt.Print(ansi_up_lines(gridLines))
+	fmt.Fprintln(gridBuf, time.Now().Format(time.StampMilli))
+	var gridLines = bytes.Count(gridBuf.Bytes(), []byte("\n"))
+	fmt.Fprint(gridBuf, ansi_up_lines(gridLines))
+	io.Copy(os.Stdout, gridBuf)
 }
 
 func mean(floats []float32) float32 {
