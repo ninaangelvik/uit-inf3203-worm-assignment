@@ -113,7 +113,8 @@ func listNodes() []string {
 		log.Panic("Error getting available nodes", err)
 	}
 
-	nodes := strings.Split(string(out), "\n")
+	trimmed := strings.TrimSpace(string(out))
+	nodes := strings.Split(trimmed, "\n")
 	return nodes
 }
 
