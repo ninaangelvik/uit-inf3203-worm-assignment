@@ -18,8 +18,7 @@ import (
 	"time"
 )
 
-const wormgatePort = ":8181"
-const segmentPort = ":8182"
+var wormgatePort string
 
 var path string
 
@@ -33,6 +32,9 @@ var runningSegment struct {
 }
 
 func main() {
+
+	flag.StringVar(&wormgatePort, "wp", ":8181", "wormgate port (prefix with colon)")
+	flag.Parse()
 
 	allHosts = rocks.ListNodes()
 
@@ -72,6 +74,8 @@ func main() {
 
 func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+
+	var segmentPort = r.URL.Query().Get("sp")
 
 	log.Println("Received segment from", r.RemoteAddr)
 
@@ -120,7 +124,8 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Start command, do not wait for it to complete
 	binary := extractionpath + "/" + "segment"
-	cmdline = []string{"stdbuf", "-oL", "-eL", binary, "run"}
+	cmdline = []string{"stdbuf", "-oL", "-eL",
+			binary, "run", "-wp", wormgatePort, "-sp", segmentPort}
 	log.Printf("Running segment: %q", cmdline)
 	cmd := exec.Command(cmdline[0], cmdline[1:]...)
 	cmd.Stdout = os.Stdout

@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"flag"
 	"io"
 	"io/ioutil"
 	"log"
@@ -25,8 +26,8 @@ const refreshRate = 100 * time.Millisecond
 const pollRate = refreshRate / 2
 const pollErrWait = 20 * time.Second
 
-const wormgatePort = ":8181"
-const segmentPort = ":8182"
+var wormgatePort string
+var segmentPort string
 
 type status struct {
 	wormgate  bool
@@ -63,6 +64,10 @@ func createClient() *http.Client {
 }
 
 func main() {
+	flag.StringVar(&wormgatePort, "wp", ":8181", "wormgate port (prefix with colon)")
+	flag.StringVar(&segmentPort, "sp", ":8182", "segment port (prefix with colon)")
+	flag.Parse()
+
 	nodes := rocks.ListNodes()
 
 	statusMap.m = make(map[string]status)

@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 )
 
-const wormgatePort = ":8181"
-const segmentPort = ":8182"
+var wormgatePort string
+var segmentPort string
 
 var hostname string
 
@@ -27,7 +27,11 @@ func main() {
 	log.SetPrefix(hostname + " segment: ")
 
 	var spreadMode = flag.NewFlagSet("spread", flag.ExitOnError)
+	addCommonFlags(spreadMode)
 	var spreadHost = spreadMode.String("host", "localhost", "host to spread to")
+
+	var runMode = flag.NewFlagSet("run", flag.ExitOnError)
+	addCommonFlags(runMode)
 
 	if len(os.Args) == 1 {
 		log.Fatalf("No mode specified\n")
@@ -38,6 +42,7 @@ func main() {
 		spreadMode.Parse(os.Args[2:])
 		sendSegment(*spreadHost)
 	case "run":
+		runMode.Parse(os.Args[2:])
 		startSegmentServer()
 
 	default:
@@ -45,9 +50,15 @@ func main() {
 	}
 }
 
+func addCommonFlags(flagset *flag.FlagSet) {
+	flagset.StringVar(&wormgatePort, "wp", ":8181", "wormgate port (prefix with colon)")
+	flagset.StringVar(&segmentPort, "sp", ":8182", "segment port (prefix with colon)")
+}
+
+
 func sendSegment(address string) {
 
-	url := "http://" + address + wormgatePort + "/wormgate"
+	url := fmt.Sprintf("http://%s%s/wormgate?sp=%s", address, wormgatePort, segmentPort)
 	filename := "tmp.tar.gz"
 
 	log.Printf("Spreading to %s", url)
