@@ -1,6 +1,7 @@
 package main
 
 import (
+	"./rocks"
 	"flag"
 	"fmt"
 	"io"
@@ -11,7 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-	"./rocks"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -174,9 +175,29 @@ func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
-	for _,host := range allHosts {
+	for _,host := range reachableHosts() {
 		fmt.Fprintln(w, host)
 	}
+}
+
+func reachableHosts() []string {
+	var reachable []string
+
+	ps := atomic.LoadInt32(&partitionScheme)
+	if ps==0 {
+		for _,host := range allHosts {
+			reachable = append(reachable, host)
+		}
+	}
+	if ps==1 {
+		for _,host := range allHosts {
+			n := len("compute-x")
+			if host[0:n] == hostname[0:n] {
+				reachable = append(reachable, host)
+			}
+		}
+	}
+	return reachable
 }
 
 func partitionSchemeHandler(w http.ResponseWriter, r *http.Request) {
@@ -193,4 +214,5 @@ func partitionSchemeHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("New partitionScheme: %d", ps)
 	atomic.StoreInt32(&partitionScheme, ps)
+	log.Printf("Reachable hosts: %s", strings.Join(reachableHosts()," "))
 }
