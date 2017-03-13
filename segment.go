@@ -84,10 +84,11 @@ func startSegmentServer() {
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 
-	// We don't use the body, but read it anyway
+	// We don't use the request body. But we should consume it anyway.
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
-	body := "Segment running on " + hostname
-	fmt.Fprintf(w, "<h1>%s</h1></br><p>No further instructions</p>", body)
+	killRateGuess := 2.0
+
+	fmt.Fprintf(w, "%.3f\n", killRateGuess)
 }
