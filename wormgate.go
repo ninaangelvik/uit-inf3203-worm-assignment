@@ -13,6 +13,7 @@ import (
 	"os/user"
 	"./rocks"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -23,6 +24,7 @@ var path string
 
 var hostname string
 var allHosts []string
+var partitionScheme int32
 
 var runningSegment struct {
 	sync.RWMutex
@@ -55,6 +57,7 @@ func main() {
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/wormgate", WormGateHandler)
 	http.HandleFunc("/killsegment", killSegmentHandler)
+	http.HandleFunc("/partitionscheme", partitionSchemeHandler)
 	http.HandleFunc("/reachablehosts", reachableHostsHandler)
 
 	log.Printf("Started wormgate on %s%s\n", hostname, wormgatePort)
@@ -174,4 +177,20 @@ func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 	for _,host := range allHosts {
 		fmt.Fprintln(w, host)
 	}
+}
+
+func partitionSchemeHandler(w http.ResponseWriter, r *http.Request) {
+
+	var ps int32
+	pc, rateErr := fmt.Fscanf(r.Body, "%d", &ps)
+	if pc != 1 || rateErr != nil {
+		log.Printf("Error parsing partitionScheme (%d items): %s", pc, rateErr)
+	}
+
+	// Consume and close rest of body
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+
+	log.Printf("New partitionScheme: %d", ps)
+	atomic.StoreInt32(&partitionScheme, ps)
 }

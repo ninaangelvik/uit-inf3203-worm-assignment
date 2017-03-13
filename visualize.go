@@ -43,6 +43,7 @@ var statusMap struct {
 
 var killRate int32;
 var targetSegments int32;
+var partitionScheme int32;
 
 // Use separate clients for wormgates vs segments
 //
@@ -175,6 +176,7 @@ func inputHandler() {
 
 		kr := atomic.LoadInt32(&killRate)
 		ts := atomic.LoadInt32(&targetSegments)
+		ps := atomic.LoadInt32(&partitionScheme)
 
 		for _, ch := range input {
 			switch ch {
@@ -192,6 +194,10 @@ func inputHandler() {
 			case '_': fallthrough
 			case '-':
 				ts -= 1
+			case '0':
+				ps = 0
+			case '1':
+				ps = 1
 			}
 		}
 		if kr < 0 {
@@ -206,6 +212,17 @@ func inputHandler() {
 
 		prevkr := atomic.SwapInt32(&killRate, kr)
 		log.Printf("Kill rate: %d -> %d", prevkr, kr)
+
+		prevps := atomic.SwapInt32(&partitionScheme, ps)
+		log.Printf("Partition scheme: %d -> %d", prevps, ps)
+
+		if ps!=prevps {
+			log.Print("posting scheme...")
+			for _,target := range allWormgateNodes() {
+				log.Print("posting scheme %s", target)
+				doPartitionSchemePost(target,ps)
+			}
+		}
 
 		if ts!=prevts {
 			for _,target := range randomSegment() {
@@ -246,6 +263,18 @@ func randomSegment() []string {
 	}
 }
 
+func allWormgateNodes() []string {
+	var nodes []string
+	statusMap.RLock()
+	for node, status := range statusMap.m {
+		if status.wormgate {
+			nodes = append(nodes, node)
+		}
+	}
+	statusMap.RUnlock()
+	return nodes
+}
+
 func killRandomNode() {
 	for _,target := range randomSegment() {
 		doKillPost(target)
@@ -258,6 +287,23 @@ func doKillPost(node string) error {
 	resp, err := wormgateClient.PostForm(url, nil)
 	if err != nil && !strings.Contains(fmt.Sprint(err), "refused") {
 		log.Printf("Error killing %s: %s", node, err)
+	}
+	if err == nil {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}
+	return err
+}
+
+func doPartitionSchemePost(node string, newps int32) error {
+	log.Printf("Posting partitionScheme: %d -> %s", newps, node)
+
+	url := fmt.Sprintf("http://%s%s/partitionscheme", node, wormgatePort)
+	postBody := strings.NewReader(fmt.Sprint(newps))
+
+	resp, err := wormgateClient.Post(url, "text/plain", postBody)
+	if err != nil && !strings.Contains(fmt.Sprint(err), "refused") {
+		log.Printf("Error posting partitionScheme %s: %s", node, err)
 	}
 	if err == nil {
 		io.Copy(ioutil.Discard, resp.Body)
