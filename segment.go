@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 const wormgatePort = ":8181"
@@ -76,6 +77,7 @@ func startSegmentServer() {
 	http.HandleFunc("/", IndexHandler)
 
 	log.Printf("Starting segment server on %s%s\n", hostname, segmentPort)
+	log.Printf("Reachable hosts: %s", strings.Join(fetchReachableHosts()," "))
 	err := http.ListenAndServe(segmentPort, nil)
 	if err != nil {
 		log.Panic(err)
@@ -91,4 +93,22 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	killRateGuess := 2.0
 
 	fmt.Fprintf(w, "%.3f\n", killRateGuess)
+}
+
+func fetchReachableHosts() []string {
+	url := fmt.Sprintf("http://localhost%s/reachablehosts", wormgatePort)
+	resp, err := http.Get(url)
+	if err != nil {
+		return []string{}
+	}
+
+	var bytes []byte
+	bytes, err = ioutil.ReadAll(resp.Body)
+	body := string(bytes)
+	resp.Body.Close()
+
+
+	trimmed := strings.TrimSpace(body)
+	nodes := strings.Split(trimmed, "\n")
+	return nodes
 }

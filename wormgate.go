@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"./rocks"
 	"sync"
 	"time"
 )
@@ -20,6 +21,9 @@ const segmentPort = ":8182"
 
 var path string
 
+var hostname string
+var allHosts []string
+
 var runningSegment struct {
 	sync.RWMutex
 	p *os.Process
@@ -27,7 +31,9 @@ var runningSegment struct {
 
 func main() {
 
-	var hostname, _ = os.Hostname()
+	allHosts = rocks.ListNodes()
+
+	hostname, _ = os.Hostname()
 	log.SetPrefix(hostname + " wormgate: ")
 
 	curuser, err := user.Current()
@@ -49,6 +55,7 @@ func main() {
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/wormgate", WormGateHandler)
 	http.HandleFunc("/killsegment", killSegmentHandler)
+	http.HandleFunc("/reachablehosts", reachableHostsHandler)
 
 	log.Printf("Started wormgate on %s%s\n", hostname, wormgatePort)
 
@@ -155,7 +162,16 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
-	hostname, _ := os.Hostname()
 	body := "Wormgate running on " + hostname
 	fmt.Fprintf(w, "<h1>%s</h1></br><p>Post segments to to /segment</p>", body)
+}
+
+func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
+	// We don't use the body, but read it anyway
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+
+	for _,host := range allHosts {
+		fmt.Fprintln(w, host)
+	}
 }
