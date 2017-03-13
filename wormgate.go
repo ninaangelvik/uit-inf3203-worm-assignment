@@ -75,6 +75,19 @@ func main() {
 func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
+	runningSegment.Lock()
+	defer runningSegment.Unlock()
+
+	if runningSegment.p != nil {
+		http.Error(w, "Segment already running", 409)
+
+		// Consume body
+		io.Copy(ioutil.Discard, r.Body)
+		r.Body.Close()
+
+		return
+	}
+
 	var segmentPort = r.URL.Query().Get("sp")
 
 	log.Println("Received segment from", r.RemoteAddr)
@@ -135,9 +148,7 @@ func WormGateHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Panic("Error starting segment ", err)
 	}
-	runningSegment.Lock()
 	runningSegment.p = cmd.Process
-	runningSegment.Unlock()
 }
 
 func killSegmentHandler(w http.ResponseWriter, r *http.Request) {
