@@ -91,6 +91,7 @@ func sendSegment(address string) {
 func startSegmentServer() {
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/targetsegments", targetSegmentsHandler)
+	http.HandleFunc("/shutdown", shutdownHandler)
 
 	log.Printf("Starting segment server on %s%s\n", hostname, segmentPort)
 	log.Printf("Reachable hosts: %s", strings.Join(fetchReachableHosts()," "))
@@ -125,6 +126,17 @@ func targetSegmentsHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("New targetSegments: %d", ts)
 	atomic.StoreInt32(&targetSegments, ts)
+}
+
+func shutdownHandler(w http.ResponseWriter, r *http.Request) {
+
+	// Consume and close body
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+
+	// Shut down
+	log.Printf("Received shutdown command, committing suicide")
+	os.Exit(0)
 }
 
 func fetchReachableHosts() []string {

@@ -183,6 +183,7 @@ func inputHandler() {
 		kr := atomic.LoadInt32(&killRate)
 		ts := atomic.LoadInt32(&targetSegments)
 		ps := atomic.LoadInt32(&partitionScheme)
+		shutdown := false
 
 		for _, ch := range input {
 			switch ch {
@@ -200,6 +201,8 @@ func inputHandler() {
 			case '_': fallthrough
 			case '-':
 				ts -= 1
+			case 's':
+				shutdown = true
 			case '0':
 				ps = 0
 			case '1':
@@ -231,6 +234,12 @@ func inputHandler() {
 		if ts!=prevts {
 			for _,target := range randomSegment() {
 				doTargetSegmentsPost(target,ts)
+			}
+		}
+
+		if shutdown {
+			for _,target := range randomSegment() {
+				doWormShutdownPost(target)
 			}
 		}
 	}
@@ -324,6 +333,22 @@ func doTargetSegmentsPost(node string, newts int32) error {
 
 	resp, err := segmentClient.Post(url, "text/plain", postBody)
 	if err != nil && !strings.Contains(fmt.Sprint(err), "refused") {
+		log.Printf("Error posting shutdown to %s: %s", node, err)
+	}
+	if err == nil {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}
+	return err
+}
+
+func doWormShutdownPost(node string) error {
+	log.Printf("Posting shutdown to %s", node)
+
+	url := fmt.Sprintf("http://%s%s/shutdown", node, segmentPort)
+
+	resp, err := segmentClient.PostForm(url, nil)
+	if err != nil && !strings.Contains(fmt.Sprint(err), "refused") {
 		log.Printf("Error posting targetSegments %s: %s", node, err)
 	}
 	if err == nil {
@@ -360,7 +385,12 @@ func printNodeGrid() {
 	fmt.Fprint(gridBuf, ansi_reverse, "segment", ansi_reset, ",  ")
 	fmt.Fprint(gridBuf, ansi_red_bg, "error", ansi_reset)
 	fmt.Fprintln(gridBuf)
-	fmt.Fprint(gridBuf, "Keys  : kK/jJ kill rate,  +/- segments,  0-9 partition scheme")
+	fmt.Fprint(gridBuf, "Keys  :")
+	fmt.Fprint(gridBuf, "  kK/jJ kill rate,")
+	fmt.Fprint(gridBuf, "  +/- segments,")
+	fmt.Fprint(gridBuf, "  0-9 partition,")
+	fmt.Fprint(gridBuf, "  s worm shutdown,")
+	fmt.Fprint(gridBuf, "  Ctrl-C quit")
 
 	for x := minx; x <= maxx; x++ {
 		for y := miny; y <= maxy; y++ {
