@@ -28,11 +28,11 @@ const wormgatePort = ":8181"
 const segmentPort = ":8182"
 
 type status struct {
-	wormgate bool
-	segment  bool
-	err      bool
+	wormgate  bool
+	segment   bool
+	err       bool
 	rateGuess float32
-	rateErr error
+	rateErr   error
 }
 
 type statusMap struct {
@@ -58,8 +58,7 @@ var segmentClient *http.Client
 
 func createClient() *http.Client {
 	return &http.Client{
-		Transport: &http.Transport{
-		},
+		Transport: &http.Transport{},
 	}
 }
 
@@ -137,13 +136,13 @@ func pollNode(host string) status {
 	wormgateUrl := fmt.Sprintf("http://%s%s/", host, wormgatePort)
 	segmentUrl := fmt.Sprintf("http://%s%s/", host, segmentPort)
 
-	wormgate,_,wgerr := httpGetOk(wormgateClient,wormgateUrl)
-	if wgerr!=nil {
+	wormgate, _, wgerr := httpGetOk(wormgateClient, wormgateUrl)
+	if wgerr != nil {
 		return status{false, false, true, 0, nil}
 	}
-	segment,segBody,segErr := httpGetOk(segmentClient,segmentUrl)
+	segment, segBody, segErr := httpGetOk(segmentClient, segmentUrl)
 
-	if segErr!=nil {
+	if segErr != nil {
 		return status{false, false, true, 0, nil}
 	}
 
@@ -152,8 +151,8 @@ func pollNode(host string) status {
 	if segment {
 		var pc int
 		pc, rateErr = fmt.Sscanf(segBody, "%f", &rateGuess)
-		if pc!=1 || rateErr != nil {
-			log.Printf("Error parsing from %s (%d items): %s", host, pc,rateErr)
+		if pc != 1 || rateErr != nil {
+			log.Printf("Error parsing from %s (%d items): %s", host, pc, rateErr)
 			log.Printf("Response %s: %s", host, segBody)
 		}
 	}
@@ -161,7 +160,7 @@ func pollNode(host string) status {
 	return status{wormgate, segment, false, rateGuess, rateErr}
 }
 
-func httpGetOk(client *http.Client, url string) (bool,string,error) {
+func httpGetOk(client *http.Client, url string) (bool, string, error) {
 	resp, err := client.Get(url)
 	isOk := err == nil && resp.StatusCode == 200
 	body := ""
@@ -178,7 +177,7 @@ func httpGetOk(client *http.Client, url string) (bool,string,error) {
 		body = string(bytes)
 		resp.Body.Close()
 	}
-	return isOk,body,err
+	return isOk, body, err
 }
 
 func inputHandler() {
@@ -264,7 +263,6 @@ func ansi_up_lines(n int) string {
 	return fmt.Sprintf("\033[%dF", n)
 }
 
-
 const gridLines = (maxx-minx+1)*((maxy-miny)/colwidth+2) + 5
 
 func nodeGrid(statuses *statusMap) {
@@ -302,7 +300,7 @@ func nodeGrid(statuses *statusMap) {
 				if status.segment {
 					fmt.Print(ansi_reverse)
 				}
-				if status.segment && status.rateErr==nil {
+				if status.segment && status.rateErr == nil {
 					rateGuesses = append(rateGuesses,
 						status.rateGuess)
 				}
@@ -326,8 +324,8 @@ func nodeGrid(statuses *statusMap) {
 
 func mean(floats []float32) float32 {
 	var sum float32 = 0
-	for _,f := range floats {
+	for _, f := range floats {
 		sum += f
 	}
-	return sum/float32(len(floats))
+	return sum / float32(len(floats))
 }

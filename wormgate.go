@@ -31,12 +31,12 @@ func main() {
 	log.SetPrefix(hostname + " wormgate: ")
 
 	curuser, err := user.Current()
-	if err!=nil {
+	if err != nil {
 		log.Panic(err)
 	}
 	log.Printf("Current user: %s\n", curuser.Username)
 
-	path = *flag.String("path", "/tmp/wormgate-" + curuser.Username,
+	path = *flag.String("path", "/tmp/wormgate-"+curuser.Username,
 		"where to store segment code")
 
 	log.Printf("Changing working directory to " + path)
@@ -135,7 +135,7 @@ func killSegmentHandler(w http.ResponseWriter, r *http.Request) {
 		pid := runningSegment.p.Pid
 		log.Printf("Killing segment process %d", pid)
 		err := runningSegment.p.Kill()
-		if err!=nil {
+		if err != nil {
 			log.Panicf("Could not kill segment process %d: %s",
 				pid, err)
 		}
