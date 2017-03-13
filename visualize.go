@@ -354,6 +354,12 @@ func printNodeGrid() {
 
 	fmt.Fprint(gridBuf, ansi_clear_to_end)
 	fmt.Fprintln(gridBuf)
+	fmt.Fprint(gridBuf, "Legend: ")
+	fmt.Fprint(gridBuf, "node", ", ")
+	fmt.Fprint(gridBuf, ansi_bold, "wormgate", ansi_reset, ", ")
+	fmt.Fprint(gridBuf, ansi_reverse, "segment", ansi_reset, ", ")
+	fmt.Fprint(gridBuf, ansi_red_bg, "error", ansi_reset)
+
 	for x := minx; x <= maxx; x++ {
 		for y := miny; y <= maxy; y++ {
 			if y%colwidth == 0 {
