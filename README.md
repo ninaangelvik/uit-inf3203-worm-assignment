@@ -83,6 +83,13 @@ Quick Start
 NOTE: Be sure to change these ports so that you don't conflict with other
 students.
 
+Set up Go environment variables. Add the following to your `~/.bashrc` and log
+out/in again:
+
+    # golang
+    export GOROOT=/share/apps/go/
+    export PATH=$PATH:$GOROOT/bin/
+
 Build the Go source:
 
     ./build.sh
