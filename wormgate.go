@@ -12,7 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-	"strings"
+	// "strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -243,5 +243,5 @@ func partitionSchemeHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("New partitionScheme: %d", ps)
 	atomic.StoreInt32(&partitionScheme, ps)
-	log.Printf("Reachable hosts: %s", strings.Join(reachableHosts()," "))
+	// log.Printf("Reachable hosts: %s", strings.Join(reachableHosts()," "))
 }

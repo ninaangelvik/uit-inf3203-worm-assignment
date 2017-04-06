@@ -206,7 +206,7 @@ HTTP API:
 
 Again, your task is to get the worm segments coordinating and acting as a
 unified worm. You may add whatever communication resources or protocols you like
-to make that happen, but your segments much continue to support this API so that
+to make that happen, but your segments must continue to support this API so that
 it can work with the worm gate and visualizer.
 
 Command line:

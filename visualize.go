@@ -134,7 +134,7 @@ func pollNode(host string) status {
 		return status{false, false, true, 0, nil}
 	}
 	segment, segBody, segErr := httpGetOk(segmentClient, segmentUrl)
-
+	
 	if segErr != nil {
 		return status{false, false, true, 0, nil}
 	}
@@ -184,6 +184,7 @@ func inputHandler() {
 		ts := atomic.LoadInt32(&targetSegments)
 		ps := atomic.LoadInt32(&partitionScheme)
 		shutdown := false
+		state := false
 
 		for _, ch := range input {
 			switch ch {
@@ -207,6 +208,8 @@ func inputHandler() {
 				ps = 0
 			case '1':
 				ps = 1
+			case '?':
+				state = true
 			}
 		}
 		if kr < 0 {
@@ -242,6 +245,11 @@ func inputHandler() {
 		if shutdown {
 			for _,target := range randomSegment() {
 				doWormShutdownPost(target)
+			}
+		}
+		if state {
+			for _,target := range randomSegment() {
+				doSegmentStateGet(target)
 			}
 		}
 	}
@@ -356,6 +364,28 @@ func doWormShutdownPost(node string) error {
 	if err == nil {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
+	}
+	return err
+}
+
+func doSegmentStateGet(node string) error {
+	log.Printf("Fetching list of neigbors %s", node)
+
+	url := fmt.Sprintf("http://%s%s/list_neighbors", node, segmentPort)
+
+	resp, err := segmentClient.Get(url)
+	if err != nil && !strings.Contains(fmt.Sprint(err), "refused") {
+		log.Printf("Error posting SegmentState %s: %s", node, err)
+	}
+	if err == nil {
+		var bytes []byte
+		bytes, err = ioutil.ReadAll(resp.Body)
+		body := string(bytes)
+		resp.Body.Close()
+
+		trimmed := strings.TrimSpace(body)
+		nodes := strings.Split(trimmed, "\n")
+	  log.Printf("Neighbors: %s", strings.Join(nodes," "))
 	}
 	return err
 }
