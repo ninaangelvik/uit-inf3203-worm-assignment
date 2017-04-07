@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"math/rand"
+	"time"
 )
 
 var wormgatePort string
@@ -19,10 +20,12 @@ var segmentPort string
 var hostname string
 var targetSegments int32
 var	nodeList []string 
+var ticker = make(chan bool)
 
 func main() {
 
 	hostname, _ = os.Hostname()
+	hostname = strings.Split(hostname, ".")[0]
 	log.SetPrefix(hostname + " segment: ")
 
 	var spreadMode = flag.NewFlagSet("spread", flag.ExitOnError)
@@ -98,19 +101,22 @@ func sendSegment(address string) int {
 }
 
 func startSegmentServer() {
-	log.Printf("In startSegmentServer")
+	// log.Printf("In startSegmentServer at host: %s", hostname)
 
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/targetsegments", targetSegmentsHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
-	http.HandleFunc("/share_neighbors", shareNeighborHandler)
+	http.HandleFunc("/share_nodes", shareNeighborHandler)
 	http.HandleFunc("/list_neighbors", listNeighborHandler)
 	http.HandleFunc("/add_node", addNodeHandler)
 	http.HandleFunc("/remove_node", removeNodeHandler)
 	http.HandleFunc("/update_target", updateTargetSegmentHandler)
 
 	log.Printf("Starting segment server on %s%s\n", hostname, segmentPort)
-	nodeList = append(nodeList, (strings.Split(hostname, ".")[0]))
+	nodeList = append(nodeList, hostname)
+	log.Printf("Neighbors in start: %s", strings.Join(nodeList," "))
+	// go scheduler(ticker)
+	
 	// log.Printf("Reachable hosts: %s", strings.Join(fetchReachableHosts()," "))
 	err := http.ListenAndServe(segmentPort, nil)
 	if err != nil {
@@ -127,9 +133,27 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 
 	// log.Printf("Length of list: %d", len(nodeList))
 	// log.Printf("Neighbors: %s", strings.Join(nodeList," "))
-	// if int32(len(nodeList)) != targetSegments {
-	// 	checkState()
-	// }
+	// if <-ticker { 
+	// 	if (int32(len(nodeList)) != targetSegments) && targetSegments != 0 {
+	// 	  checkState()
+	// 	}	
+	// } 
+
+ //  if targetSegments != 0 {
+	//   checkState()
+	// }	
+  // select {
+  // case _, ok := <-ticker:
+  //     if ok {
+  //       if targetSegments != 0 {
+		// 		  checkState()
+		// 		}	
+  //     } else {
+  //         fmt.Println("Channel closed!")
+  //     }
+  // default:
+      // fmt.Println("No value ready, moving on.")
+  // }
 
 	fmt.Fprintf(w, "%.3f\n", killRateGuess)
 }
@@ -148,7 +172,7 @@ func targetSegmentsHandler(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 
 	atomic.StoreInt32(&targetSegments, ts)
-	log.Printf("%d", targetSegments)
+	// log.Printf("%d", targetSegments)
 	updateTargetSegment(targetSegments)
 }
 
@@ -160,6 +184,7 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Shut down
 	log.Printf("Received shutdown command, committing suicide")
+	close(ticker)
 	os.Exit(0)
 }
 
@@ -191,6 +216,7 @@ func listNeighborHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func shareNeighborHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("?????????????????????????????????????????")
 	var bytes []byte
 	bytes,_ = ioutil.ReadAll(r.Body)
 	body := string(bytes)
@@ -277,13 +303,12 @@ func updateTargetSegment(newTarget int32) {
 func checkState() {
 	// log.Printf("------- HOST: %s targetsegments: %d-----------", hostname, targetSegments)
 
-	log.Printf("Length of list: %d", len(nodeList))
-	log.Printf("Neighbors: %s", strings.Join(nodeList," "))
+	log.Printf("In checkState")
 	
 	for int32(len(nodeList)) < targetSegments {
 		reachablehosts := fetchReachableHosts()
 		new_host := reachablehosts[rand.Intn(len(reachablehosts))]
-		for new_host == strings.Split(hostname, ".")[0] {
+		for new_host == hostname {
 			reachablehosts = fetchReachableHosts()
 			new_host = reachablehosts[rand.Intn(len(reachablehosts))]
 		}
@@ -294,12 +319,19 @@ func checkState() {
 		retval := sendSegment(new_host)
 		if retval == 0 {
 			postAddNode(new_host)
-			nodeList = append(nodeList, new_host)
+			log.Printf("Neighbors: %s", strings.Join(nodeList," "))
+			log.Printf("Neighbors: %s", strings.Join(nodeList," "))
+			time.Sleep(time.Second)
 			shareNeighbors(new_host)
+			nodeList = append(nodeList, new_host)
+		} else {
+			log.Printf("Error in checkState")
 		}
 	}
 	for int32(len(nodeList)) > targetSegments {
-		node := strings.Split(hostname, ".")[0]
+		log.Printf("%d, %d", len(nodeList), targetSegments)
+		log.Printf("Too many in list")
+		node := hostname
 		postRemoveNode(node)
 		shutdown(node)
 	}
@@ -307,6 +339,9 @@ func checkState() {
 
 func postAddNode(address string) {
 	for _,node := range(nodeList) {
+		if node == hostname {
+			continue
+		}
 		log.Printf("NODE: %s", node)
 		url := fmt.Sprintf("http://%s%s/add_node", node, segmentPort)
 		postBody := strings.NewReader(fmt.Sprint(address))
@@ -351,12 +386,12 @@ func shutdown(address string) {
 }
 
 func shareNeighbors(address string) {
-	url := fmt.Sprintf("http://%s%s/share_neighbors", address, segmentPort)
+	url := fmt.Sprintf("http://%s%s/share_nodes", address, segmentPort)
 
-	log.Printf("Sending neighbors to %s", url)
+	log.Printf("Sending neighbors %s to %s", strings.Join(nodeList," "),url)
 
 	// ship the binary and the qml file that describes our screen output
-	postBody :=  strings.NewReader(strings.Join(nodeList," "))
+	postBody :=  strings.NewReader(fmt.Sprint(strings.Join(nodeList," ")))
 	resp, err := http.Post(url, "text/plain", postBody)
 	if err != nil && !strings.Contains(fmt.Sprint(err), "refused") {
 		log.Printf("Error sharing neighbors with %s: %s", address, err)
@@ -375,3 +410,10 @@ func remove(s []string, r string) []string {
     }
     return s
 }
+
+// func scheduler(c chan bool) {
+// 	for {
+// 		time.Sleep(time.Second * 3)
+// 		c <- true
+// 	}
+// }
