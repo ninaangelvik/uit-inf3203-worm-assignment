@@ -226,15 +226,19 @@ func reachableHosts() []string {
 	ps := atomic.LoadInt32(&partitionScheme)
 	if ps==0 {
 		for _,host := range allHosts {
-			reachable = append(reachable, host)
+			if host != "compute-2-20" && host != "compute-1-4" {
+				reachable = append(reachable, host)
+			}
 		}
 	}
 	if ps==1 {
 		for _,host := range allHosts {
 			n := len("compute-x")
 			if host[0:n] == hostname[0:n] {
-				reachable = append(reachable, host)
-			}
+				if host != "compute-2-20" && host != "compute-1-4" {
+					reachable = append(reachable, host)
+				}
+			}	
 		}
 	}
 	return reachable
