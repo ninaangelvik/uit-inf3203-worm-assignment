@@ -11,7 +11,10 @@ import (
 	"os/exec"
 	"strings"
 	"sync/atomic"
+	"time"
 )
+
+var maxRunTime time.Duration
 
 var wormgatePort string
 var segmentPort string
@@ -53,6 +56,7 @@ func main() {
 func addCommonFlags(flagset *flag.FlagSet) {
 	flagset.StringVar(&wormgatePort, "wp", ":8181", "wormgate port (prefix with colon)")
 	flagset.StringVar(&segmentPort, "sp", ":8182", "segment port (prefix with colon)")
+	flagset.DurationVar(&maxRunTime, "maxrun", time.Minute*10, "max time to run (in case you forget to shut down)")
 }
 
 
@@ -89,6 +93,19 @@ func sendSegment(address string) {
 }
 
 func startSegmentServer() {
+	// Quit if maxRunTime timeout
+	exitReason := make(chan string, 1)
+	go func() {
+		time.Sleep(maxRunTime)
+		exitReason <- fmt.Sprintf("maxrun timeout: %s", maxRunTime)
+	}()
+	go func() {
+		reason := <-exitReason
+		log.Printf(reason)
+		log.Print("Shutting down")
+		os.Exit(0)
+	}()
+
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/targetsegments", targetSegmentsHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
