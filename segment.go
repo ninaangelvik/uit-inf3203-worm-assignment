@@ -13,13 +13,14 @@ import (
 	"sync/atomic"
 	"sync"
 	"math/rand"
-	"time"
+	// "time"
 )
 
 var wormgatePort string
 var segmentPort string
 var hostname string
 var targetSegments int32
+var killRateGuess float32
 
 var segmentClient *http.Client
 
@@ -52,7 +53,22 @@ func main() {
 	}
 
 	segmentClient = createClient()
-	targetSegments = 1
+
+	updateSegmentList()
+
+	log.Printf("Length of list: %d", len(segmentList.list))
+	if len(segmentList.list) == 1 {
+		targetSegments = 1
+	} else {
+		for _, host := range(segmentList.list) {
+			httpGetTargetSegment(host)
+			if targetSegments > 1 {
+				break
+			} 
+		}
+	}
+
+	killRateGuess = 0.0
 
 	switch os.Args[1] {
 	case "spread":
@@ -117,8 +133,11 @@ func startSegmentServer() {
 	http.HandleFunc("/targetsegments", targetSegmentsHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
 	http.HandleFunc("/update_target", updateTargetSegmentHandler)
+	http.HandleFunc("/get_target", getTargetSegmentsHandler)
 	
 	go getActiveSegments()
+
+	log.Printf("TargetSegments: %d", targetSegments)
 	// go checkState()
 
 	err := http.ListenAndServe(segmentPort, nil)
@@ -131,7 +150,6 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	// We don't use the request body. But we should consume it anyway.
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
-	killRateGuess := 2.0
 
 	fmt.Fprintf(w, "%.3f\n", killRateGuess)
 }
@@ -166,6 +184,31 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 	os.Exit(0)
 }
 
+func getTargetSegmentsHandler(w http.ResponseWriter, r *http.Request) {
+	// We don't use the request body. But we should consume it anyway.
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+
+	fmt.Fprintf(w, "%d", targetSegments)
+}
+
+func httpGetTargetSegment(host string) {
+	var ts int32
+	url := fmt.Sprintf("http://%s%s/get_segment", host, segmentPort)
+	resp, err := segmentClient.Get(url)
+
+	if err != nil {
+			// log.Printf("Error checking %s: %s", url, err)
+	} else {
+		_,_ = fmt.Fscanf(resp.Body, "%d", &ts)
+		// Consume and close rest of body
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+
+		atomic.StoreInt32(&targetSegments, ts)
+	}
+}
+
 func fetchReachableHosts() []string {
 	url := fmt.Sprintf("http://localhost%s/reachablehosts", wormgatePort)
 	resp, err := http.Get(url)
@@ -196,28 +239,12 @@ func shutdown(address string) {
 }
 
 func getActiveSegments() {
-	var wg sync.WaitGroup
-	segmentChannel := make(chan string, 84)
-	var activeSegments []string
-
+	
+	// var start time.Time
+	// var elapsed time.Duration 
+	// var killed int
 	for {
-		activeSegments = nil
-		reachableHosts := fetchReachableHosts()
-
-		for _,host := range(reachableHosts) {
-			wg.Add(1)
-			go httpGetOk(segmentChannel, host, &wg)
-		}
-		wg.Wait()
-
-		for i := 0; i <= len(segmentChannel); i++ {
-			segment := <-segmentChannel
-
-			activeSegments = append(activeSegments, segment)
-		}
-		segmentList.Lock()
-		segmentList.list = activeSegments
-		segmentList.Unlock()
+		updateSegmentList()
 
 		if targetSegments > 1{
 			alterSegmentNumber()
@@ -225,6 +252,31 @@ func getActiveSegments() {
 
 		// time.Sleep(10 * time.Millisecond)
 	}
+}
+
+func updateSegmentList(){
+		var wg sync.WaitGroup
+		segmentChannel := make(chan string, 84)
+		var activeSegments []string
+
+		reachableHosts := fetchReachableHosts()
+
+		for _,host := range(reachableHosts) {
+			wg.Add(1)
+			go httpGetOk(segmentChannel, host, &wg)
+		}
+		wg.Wait()
+		close(segmentChannel)
+
+		for i := 0; i <= len(segmentChannel); i++ {
+			segment := <-segmentChannel
+			activeSegments = append(activeSegments, segment)
+		}
+
+		segmentList.Lock()
+		segmentList.list = activeSegments
+		segmentList.Unlock()
+
 }
 
 func httpGetOk(c chan string, host string, wg *sync.WaitGroup) {
@@ -253,15 +305,10 @@ func httpGetOk(c chan string, host string, wg *sync.WaitGroup) {
 func updateTargetSegment(newTarget int32) {
 	var wg sync.WaitGroup
 
-	// segmentList.RLock()
-	// log.Printf("LOCKED in updateTargetSegment")
-
 	for _,node := range(segmentList.list){
 		wg.Add(1)
 		go httpPostTargetSegment(node, newTarget, &wg)
 	}
-	// segmentList.RUnlock()
-	// log.Printf("LOCKED in updateTargetSegment")
 
 	wg.Wait()
 
