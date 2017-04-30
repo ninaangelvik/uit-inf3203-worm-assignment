@@ -36,8 +36,6 @@ type Result struct {
 	ts int32
 }
 
-// var wormgates = []string {"compute-3-21", "compute-3-22", "compute-3-23", "compute-3-24", "compute-3-26", "compute-3-27", "compute-3-28"}
-
 func createClient() *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{},
@@ -120,8 +118,6 @@ func sendSegment(address string) bool {
 	} else {
 		return false
 	}
-
-	// updateSegmentList()
 	return true
 }
 
@@ -146,10 +142,8 @@ func startSegmentServer() {
 	http.HandleFunc("/get_target", getTargetSegmentsHandler)
 	
 	go getActiveSegments()
-
 	go checkState()
 
-	// log.Printf("Before ListenAndServe")	
 	err := http.ListenAndServe(segmentPort, nil)
 	if err != nil {
 		log.Panic(err)
@@ -236,20 +230,13 @@ func shutdown(address string) {
 }
 
 func getActiveSegments() {
-	
-	// var start time.Time
-	// var elapsed time.Duration 
-	// var killed int
 	for {
 		updateSegmentList()
 		time.Sleep(1 * time.Second)
-		// checkState()
 	}
 }
 
 func checkState() {
-	
-	log.Printf("Len: %d, ts: %d", len(segmentList.list), targetSegments)
 	if targetSegments > 0 && targetSegments != int32(len(segmentList.list)) {
 		alterSegmentNumber()
 	}
@@ -257,53 +244,41 @@ func checkState() {
 }
 
 func updateSegmentList(){
-		var wg sync.WaitGroup
-		segmentChannel := make(chan Result, 84)
-		var activeSegments []string
+	var wg sync.WaitGroup
+	segmentChannel := make(chan Result, 84)
+	var activeSegments []string
 
-		reachableHosts := fetchReachableHosts()
-		// reachableHosts := wormgates
-		// log.Printf("len reachablehosts %d", len(reachableHosts))
-		if len(reachableHosts) > 0 {	
-			for _,host := range(reachableHosts) {
-				wg.Add(1)
-				go httpGetTargetSegment(segmentChannel, host, &wg)
-			}
-			wg.Wait()
-			close(segmentChannel)
+	reachableHosts := fetchReachableHosts()
 
-			// log.Printf("Closing channel at %.3f seconds", time.Duration.Seconds(time.Since(start)))
-			var result Result
+	if len(reachableHosts) > 0 {	
+		for _,host := range(reachableHosts) {
+			wg.Add(1)
+			go httpGetTargetSegment(segmentChannel, host, &wg)
+		}
+		wg.Wait()
+		close(segmentChannel)
 
-			// result = <- segmentChannel
-			// log.Printf("len  %d", len(segmentChannel))
+		var result Result
+		if len(segmentChannel) > 0 {
+			length := len(segmentChannel)
+			for i := 0; i < length; i++ {
+				result = <-segmentChannel
+				activeSegments = append(activeSegments, result.host)
 
-			if len(segmentChannel) > 0 {
-				length := len(segmentChannel)
-				for i := 0; i < length; i++ {
-					result = <-segmentChannel
-					log.Printf("appending")
-					activeSegments = append(activeSegments, result.host)
-
-					if targetSegments == 0 && result.ts != 0{
-						atomic.StoreInt32(&targetSegments, result.ts)
-					}
+				if targetSegments == 0 && result.ts != 0{
+					atomic.StoreInt32(&targetSegments, result.ts)
 				}
-
-				// log.Printf("Locking list at %.3f", time.Duration.Seconds(time.Since(start)))
-				segmentList.Lock()
-				segmentList.list = activeSegments
-				segmentList.Unlock()
-				// log.Printf("List is updated %s", strings.Join(segmentList.list, ", "))
 			}
-		}
 
-		if targetSegments > 0 && targetSegments != int32(len(segmentList.list)) {
-			log.Printf("Len: %d, ts: %d", len(segmentList.list), targetSegments)
-			alterSegmentNumber()
+			segmentList.Lock()
+			segmentList.list = activeSegments
+			segmentList.Unlock()
 		}
+	}
 
-		// log.Printf("exit")
+	if targetSegments > 0 && targetSegments != int32(len(segmentList.list)) {
+		alterSegmentNumber()
+	}
 }
 
 func httpGetTargetSegment(c chan Result, host string, wg *sync.WaitGroup) {
@@ -314,7 +289,7 @@ func httpGetTargetSegment(c chan Result, host string, wg *sync.WaitGroup) {
 	isOk := err == nil && resp.StatusCode == 200
 
 	if err != nil {
-			// log.Printf("Error checking %s: %s", url, err)
+		log.Printf("Error checking %s: %s", url, err)
 	} else {
 		_,_ = fmt.Fscanf(resp.Body, "%d", &ts)
 		// Consume and close rest of body
@@ -323,45 +298,23 @@ func httpGetTargetSegment(c chan Result, host string, wg *sync.WaitGroup) {
 	}
 
 	if isOk == true {
-		// log.Printf("%s is ok", host)
 		result.host = host	
 		result.ts = ts
 		c <- result
 	}
-	// log.Printf("Ending get request at %.4f", time.Duration.Seconds(time.Since(start)))
 	wg.Done()
 	
 }
 
-// func httpGetOk(c chan string, host string) {
-// 	url := fmt.Sprintf("http://%s%s/", host, segmentPort)
-// 	resp, err := segmentClient.Get(url)
-// 	// isOk := err == nil && resp.StatusCode == 200
-
-// 	if err != nil {
-// 		if strings.Contains(fmt.Sprint(err), "connection refused") {
-// 			// ignore connection refused errors
-// 			err = nil
-// 		} else {
-// 			// log.Printf("Error checking %s: %s", url, err)
-// 		}
-// 	} else {
-// 		resp.Body.Close()
-// 	}
-// }
-
 func updateTargetSegment(newTarget int32) {
 	var wg sync.WaitGroup
 
-	log.Printf("Posting targetsegment to other nodes")
 	for _,node := range(segmentList.list){
 		wg.Add(1)
 		go httpPostTargetSegment(node, newTarget, &wg)
 	}
 
 	wg.Wait()
-	log.Printf("Done posting targetSegments")
-	// time.Sleep(25 * time.Millisecond)
 }
 
 func httpPostTargetSegment(host string, newTarget int32, wg *sync.WaitGroup) {
@@ -371,7 +324,6 @@ func httpPostTargetSegment(host string, newTarget int32, wg *sync.WaitGroup) {
 	resp, err := segmentClient.Post(url, "text/plain", postBody)
 	if err != nil && !strings.Contains(fmt.Sprint(err), "refused") {
 		log.Printf("Error updating target segment")
-		// postRemoveNode(node)
 	}
 	if err == nil {
 		io.Copy(ioutil.Discard, resp.Body)
@@ -396,36 +348,23 @@ func updateTargetSegmentHandler(w http.ResponseWriter, r *http.Request) {
 
 func alterSegmentNumber() {
 	segmentList.RLock()
-	log.Printf("enter alterSegmentNumber")
 
 	if len(segmentList.list) == 0 {
-		// log.Printf("Length of list: %d, ts: %d", len(segmentList.list), targetSegments)
 		time.Sleep(10 * time.Millisecond)
 	}
 
 	if int32(len(segmentList.list)) < targetSegments {
-		log.Printf("adding segment")
 		reachablehosts := fetchReachableHosts()
-		// reachablehosts := wormgates
 		new_host := reachablehosts[rand.Intn(len(reachablehosts))]
-		
 		sendSegment(new_host)
-		// for retval == false {
-		// 	new_host = reachablehosts[rand.Intn(len(reachablehosts))]
-		// 	retval = sendSegment(new_host)
-		// }
-		// updateTargetSegment(targetSegments)
 	}
+
 	if int32(len(segmentList.list)) > targetSegments {
-		log.Printf("removing segment")
 		shutdownHost := segmentList.list[rand.Intn(len(segmentList.list))]
-		// for shutdownHost == hostname {
-		// 	shutdownHost = segmentList.list[rand.Intn(len(segmentList.list))]
-		// }
 		shutdown(shutdownHost)
 	}
+
   segmentList.RUnlock()
   time.Sleep(1 * time.Second)
-	log.Printf("exit alterSegmentNumber")
 }
 
