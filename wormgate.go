@@ -36,7 +36,7 @@ var runningSegment struct {
 func main() {
 
 	flag.StringVar(&wormgatePort, "wp", ":8181", "wormgate port (prefix with colon)")
-	flag.DurationVar(&maxRunTime, "maxrun", time.Minute*10, "max time to run (in case you forget to shut down)")
+	flag.DurationVar(&maxRunTime, "maxrun", time.Minute*60, "max time to run (in case you forget to shut down)")
 	flag.Parse()
 
 	allHosts = rocks.ListNodes()
