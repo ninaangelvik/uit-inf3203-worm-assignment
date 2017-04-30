@@ -75,9 +75,6 @@ func main() {
 	default:
 		log.Fatalf("Unknown mode %q\n", os.Args[1])
 	}
-
-
-	log.Printf("Ending main")
 }
 
 func addCommonFlags(flagset *flag.FlagSet) {
@@ -174,7 +171,6 @@ func targetSegmentsHandler(w http.ResponseWriter, r *http.Request) {
 	atomic.StoreInt32(&targetSegments, ts)
 
 	updateTargetSegment(targetSegments)
-	log.Printf("Length of segmentlist: %d, ts: %d", len(segmentList.list), targetSegments)
 	alterSegmentNumber()
 }
 
@@ -334,8 +330,6 @@ func httpPostTargetSegment(host string, newTarget int32, wg *sync.WaitGroup) {
 }
 
 func updateTargetSegmentHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Updating targetsegments at %s", hostname)
-
 	pc, rateErr := fmt.Fscanf(r.Body, "%d", &targetSegments)
 	if pc != 1 || rateErr != nil {
 		log.Printf("Error parsing nodes: %s", pc, rateErr)
