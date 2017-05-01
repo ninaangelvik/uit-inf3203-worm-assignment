@@ -135,6 +135,7 @@ func startSegmentServer() {
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/targetsegments", targetSegmentsHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
+	http.HandleFunc("/shutdown_sibling", shutdownSiblingHandler)
 	http.HandleFunc("/update_target", updateTargetSegmentHandler)
 	http.HandleFunc("/get_target", getTargetSegmentsHandler)
 	
@@ -176,6 +177,26 @@ func targetSegmentsHandler(w http.ResponseWriter, r *http.Request) {
 
 func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 
+	var wg sync.WaitGroup
+	// Consume and close body
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+
+	for _,node := range(segmentList.list) {
+		if node == hostname {
+			continue
+		}
+		wg.Add(1)
+		go httpGetShutdown(node, &wg)
+	}
+	wg.Wait()
+	// Shut down
+	log.Printf("Received shutdown command, committing suicide")
+	os.Exit(0)
+}
+
+func shutdownSiblingHandler(w http.ResponseWriter, r *http.Request) {
+
 	// Consume and close body
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
@@ -213,8 +234,8 @@ func fetchReachableHosts() []string {
 	return nodes
 }
 
-func shutdown(address string) {
-	url := fmt.Sprintf("http://%s%s/shutdown", address, segmentPort)
+func shutdownSibling(address string) {
+	url := fmt.Sprintf("http://%s%s/shutdown_sibling", address, segmentPort)
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Printf("Error shutting down %s", address)
@@ -329,6 +350,20 @@ func httpPostTargetSegment(host string, newTarget int32, wg *sync.WaitGroup) {
 	wg.Done()		
 }
 
+func httpGetShutdown(address string, wg *sync.WaitGroup) {
+	url := fmt.Sprintf("http://%s%s/shutdown", address, segmentPort)
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Printf("Error shutting down %s", address)
+	}
+	if err == nil {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}
+	wg.Done()
+}
+
+
 func updateTargetSegmentHandler(w http.ResponseWriter, r *http.Request) {
 	pc, rateErr := fmt.Fscanf(r.Body, "%d", &targetSegments)
 	if pc != 1 || rateErr != nil {
@@ -355,7 +390,7 @@ func alterSegmentNumber() {
 
 	if int32(len(segmentList.list)) > targetSegments {
 		shutdownHost := segmentList.list[rand.Intn(len(segmentList.list))]
-		shutdown(shutdownHost)
+		shutdownSibling(shutdownHost)
 	}
 
   segmentList.RUnlock()
